@@ -31,7 +31,7 @@ it again to reload). *RUN* runs it through the Pico (nothing is stored), with a 
 command. *Save as boot* stores the list on the Pico and runs it at every power up, with no PC
 needed; *Clear boot* stops that.
 
-**REGISTER** (register console). Quick reads of the main node (0x6A) and of any sub-node (named and decoded),
+**REGISTERS** (register console). Quick reads of any main node found and of its sub-nodes (named and decoded),
 a generic I2C read/write, and a raw Pico command line.
 
 **DEBUG PAGES** (port forwarding). Automatic. After connecting, and again after every command-list run (which redoes
