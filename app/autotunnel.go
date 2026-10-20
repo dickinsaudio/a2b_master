@@ -10,11 +10,10 @@ import (
 	"strings"
 )
 
-// The four I2C addresses an AD24xx/AD243x main node can have (ADR pins); each gets a block of
-// ten ports: main i, sub-node n -> base + 10*i + n (8000-8007, 8010-8017, 8020-8027, 8030-8037).
+// The four I2C addresses an AD24xx/AD243x main node can have (ADR pins), scanned in this order
 var a2bMains = []int{0x68, 0x6A, 0x6C, 0x6E}
 
-var basePorts = []int{8000, 8100, 8200} // First base with all 32 ports free is used
+const firstPort = 8080 // Tunnel nodes get ports from here in scan order; a port in use is skipped
 
 const (
 	tunnelSlaveAddr = 0x2A // RP2350 I2C slave on each sub-node (A2B_TUNNEL_I2C_ADDR in the firmware)
@@ -30,7 +29,6 @@ type MainScan struct {
 
 type BusScan struct {
 	Mains []MainScan `json:"mains"` // main nodes that answered
-	Base  int        `json:"base"`  // port for main 0x68 sub-node 0
 	Msg   string     `json:"msg"`
 }
 
@@ -93,25 +91,15 @@ func scanBus(p *Port) (BusScan, error) {
 	return s, err
 }
 
-// The first base port with every slot (4 mains x 8 sub-nodes) free.
-func pickBasePort(bind string) int {
-	for _, base := range basePorts {
-		free := true
-		for i := range a2bMains {
-			for n := 0; n < maxSubNodes && free; n++ {
-				ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", bind, base+10*i+n))
-				if err != nil {
-					free = false
-					break
-				}
-				ln.Close()
-			}
-		}
-		if free {
-			return base
+// The first port from p up that can be listened on.
+func nextFreePort(bind string, p int) int {
+	for ; p < 65535; p++ {
+		if ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", bind, p)); err == nil {
+			ln.Close()
+			return p
 		}
 	}
-	return basePorts[len(basePorts)-1]
+	return p
 }
 
 func joinInts(v []int) string {
@@ -151,10 +139,10 @@ func (a *App) AutoTunnel() {
 		a.setScan(s)
 		return
 	}
-	s.Base = pickBasePort(DefaultTunnelConfig().Bind)
 	s.Msg = fmt.Sprintf("%d sub-node(s), %d with a web tunnel", nodes, tunnels)
-	logf("tunnel: %s, ports from %d", s.Msg, s.Base)
+	logf("tunnel: %s", s.Msg)
 	a.setScan(s)
+	port := firstPort
 	for _, m := range s.Mains {
 		if len(m.Tunnels) == 0 {
 			continue
@@ -162,10 +150,11 @@ func (a *App) AutoTunnel() {
 		cfg := DefaultTunnelConfig()
 		cfg.A2BBase = m.Addr
 		cfg.Nodes = joinInts(m.Tunnels)
-		for i, addr := range a2bMains {
-			if addr == m.Addr {
-				cfg.BasePort = s.Base + 10*i
-			}
+		cfg.Ports = map[int]int{}
+		for _, n := range m.Tunnels {
+			port = nextFreePort(cfg.Bind, port)
+			cfg.Ports[n] = port
+			port++
 		}
 		if err := a.addTunnel(cfg); err != nil {
 			s.Msg = fmt.Sprintf("tunnel start failed for main 0x%02X: %v", m.Addr, err)

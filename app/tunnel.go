@@ -41,6 +41,7 @@ type TunnelConfig struct {
 	TunnelAddr int     `json:"tunnel_addr"`
 	Nodes      string  `json:"nodes"`
 	BasePort   int     `json:"base_port"`
+	Ports      map[int]int `json:"ports,omitempty"` // Per-node port; nodes not listed use BasePort+node
 	Bind       string  `json:"bind"`
 	Chunk      int     `json:"chunk"`
 	IdlePollMs float64 `json:"idle_poll_ms"`
@@ -52,8 +53,16 @@ type TunnelConfig struct {
 }
 
 func DefaultTunnelConfig() TunnelConfig {
-	return TunnelConfig{Transport: "pico", A2BBase: 0x6A, TunnelAddr: 0x2A, Nodes: "0", BasePort: 8000,
+	return TunnelConfig{Transport: "pico", A2BBase: 0x6A, TunnelAddr: 0x2A, Nodes: "0", BasePort: 8080,
 		Bind: "127.0.0.1", Chunk: 32, IdlePollMs: 200, Set400k: true, Retries: 8, BackoffMs: 1, StatsS: 5}
+}
+
+// PortFor is the local TCP port that forwards to node n.
+func (c TunnelConfig) PortFor(n int) int {
+	if p, ok := c.Ports[n]; ok {
+		return p
+	}
+	return c.BasePort + n
 }
 
 func ParseNodes(s string) ([]int, error) {
@@ -393,7 +402,7 @@ func NewTunnel(cfg TunnelConfig, tr NodeTransport) (*Tunnel, error) {
 	t.bus = &Bus{t: tr, retries: cfg.Retries, backoff: time.Duration(cfg.BackoffMs * float64(time.Millisecond)),
 		verbose: cfg.Verbose, mu: &t.mu, stats: map[int]*NodeStats{}}
 	for _, n := range nodes {
-		addr := net.JoinHostPort(cfg.Bind, strconv.Itoa(cfg.BasePort+n))
+		addr := net.JoinHostPort(cfg.Bind, strconv.Itoa(cfg.PortFor(n)))
 		ls, err := net.Listen("tcp4", addr)
 		if err != nil {
 			for _, nd := range t.nodes {
@@ -1051,7 +1060,7 @@ func (t *Tunnel) Status() []NodeStatus {
 		if host == "127.0.0.1" {
 			host = "localhost"
 		}
-		out = append(out, NodeStatus{Main: t.cfg.A2BBase, Node: n.num, URL: fmt.Sprintf("http://%s:%d/", host, t.cfg.BasePort+n.num),
+		out = append(out, NodeStatus{Main: t.cfg.A2BBase, Node: n.num, URL: fmt.Sprintf("http://%s:%d/", host, t.cfg.PortFor(n.num)),
 			Online: n.online, Err: n.lastErr, Conns: st.Conns, Active: len(n.conns), Queued: len(n.pending),
 			Up: st.Up, Down: st.Down, UpRate: st.UpRate, DownRate: st.DownRate, TxnRate: st.TxnRate, Txn: st.Txn,
 			Retries: st.Retries, Nacks: st.Nacks, CRCErrs: st.CRCErrs, IOErrs: st.IOErrs, Failed: st.Failed})

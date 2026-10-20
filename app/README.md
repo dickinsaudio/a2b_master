@@ -11,7 +11,7 @@ default browser (Edge or Chrome). The app can:
   the list as a C header;
 * read and write I2C registers, with quick reads for the main node and a helper for sub-node
   registers;
-* run the A2B I2C web tunnel, which forwards `http://localhost:8000+10*main+N/` to the web server on
+* run the A2B I2C web tunnel, which forwards `http://localhost:8080.../` (one port per sub-node) to the web server on
   A2B node N.
 
 Protocols: [`../docs/USB_PROTOCOL.md`](../docs/USB_PROTOCOL.md) (Pico line protocol v2) and
@@ -36,10 +36,9 @@ a generic I2C read/write, and a raw Pico command line.
 
 **Port forwarding.** Automatic. After connecting, and again after every command-list run (which redoes
 discovery), the app scans the four A2B main-node addresses (0x68, 0x6A, 0x6C, 0x6E) and up to 8
-sub-nodes on each, finds the sub-nodes whose RP2350 answers as the tunnel slave (0x2A), and forwards
-main *i* / sub-node *n* to `http://localhost:8000 + 10*i + n/`: 0x68 -> 8000-8007, 0x6A -> 8010-8017,
-0x6C -> 8020-8027, 0x6E -> 8030-8037. If any of those 32 ports is in use, 8100 (then 8200) is the base
-instead. Fixed settings: sub-node I2C 400 kHz, 32-byte chunks, 200 ms idle poll. *Rescan bus*
+sub-nodes on each, and finds the sub-nodes whose RP2350 answers as the tunnel slave (0x2A). Each one
+gets the next free local port from 8080 in scan order (a port in use is skipped); the links are shown
+in the table. Fixed settings: sub-node I2C 400 kHz, 32-byte chunks, 200 ms idle poll. *Rescan bus*
 repeats the scan. Retries are shown against the total number of tunnel transactions.
 
 ### How the port is shared
@@ -61,7 +60,7 @@ sets NODEADR first.
 
 ```
 a2b_master.exe [options]
-  -http 127.0.0.1:8090        UI address (if busy, the next 10 ports are tried)
+  -http 127.0.0.1:8000        UI address (if busy, the next 10 ports are tried)
   -no-browser                 do not open the browser
   -no-web                     headless (no UI); runs until Ctrl-C / -duration
   -port COM5|tcp:HOST:PORT    connect at start
@@ -70,7 +69,7 @@ a2b_master.exe [options]
   -list file.xml              parse and print a command list, then exit (no Pico needed)
   -export-c out.h             with -list / -run: write the C header
   -tunnel pico|sim:HOST:PORT  start the tunnel
-  -nodes 0,1 -base-port 8000 -bind 127.0.0.1 -chunk 32 -idle-poll-ms 200
+  -nodes 0,1 -base-port 8080 -bind 127.0.0.1 -chunk 32 -idle-poll-ms 200
   -a2b-base 6A -tunnel-addr 2A -set-400k -retries 8 -stats-s 5 -v
   -settings path.json         settings file (default: next to the exe)
   -duration 10                headless: exit after N seconds

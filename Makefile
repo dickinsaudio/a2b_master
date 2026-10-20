@@ -70,7 +70,7 @@ test: app fake                    ## Go unit tests + fake Pico test suite
 	cd app && $(GO) test ./...
 	python3 firmware/test/test_fake.py --fake $(B)/fake/fake_pico
 
-sim: app fake                     ## run app + fake Pico without hardware, GUI on http://127.0.0.1:8090
+sim: app fake                     ## run app + fake Pico without hardware, GUI on http://127.0.0.1:8000
 	@echo "fake Pico on tcp:127.0.0.1:9600 - connect to it in the GUI (Ctrl-C to stop)"
 	$(B)/fake/fake_pico --port 9600 & trap "kill $$!" EXIT; $(B)/app/a2b_master
 
