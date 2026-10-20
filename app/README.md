@@ -26,15 +26,15 @@ Run `a2b_master.exe`. It opens the GUI in your browser (close the console window
 shows CONNECTED. Picking it again reconnects. The last port is reconnected automatically on start.
 The version shown is the git hash the exe was built from.
 
-**Command list.** Choose a SigmaStudio(+) XML export; it is parsed as soon as it is chosen (choose
+**COMMAND** (command list). Choose a SigmaStudio(+) XML export; it is parsed as soon as it is chosen (choose
 it again to reload). *RUN* runs it through the Pico (nothing is stored), with a result per
 command. *Save as boot* stores the list on the Pico and runs it at every power up, with no PC
 needed; *Clear boot* stops that.
 
-**Register console.** Quick reads of the main node (0x6A) and of any sub-node (named and decoded),
+**REGISTER** (register console). Quick reads of the main node (0x6A) and of any sub-node (named and decoded),
 a generic I2C read/write, and a raw Pico command line.
 
-**Port forwarding.** Automatic. After connecting, and again after every command-list run (which redoes
+**DEBUG PAGES** (port forwarding). Automatic. After connecting, and again after every command-list run (which redoes
 discovery), the app scans the four A2B main-node addresses (0x68, 0x6A, 0x6C, 0x6E) and up to 8
 sub-nodes on each, and finds the sub-nodes whose RP2350 answers as the tunnel slave (0x2A). Each one
 gets the next free local port from 8080 in scan order (a port in use is skipped); the links are shown

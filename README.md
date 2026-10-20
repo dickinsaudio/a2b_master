@@ -40,7 +40,7 @@ other targets. C navigation uses `build/compile_commands.json` from the firmware
    schematic. Don't connect power; logic is 3.3 V. Leave the USBi unplugged.
 3. Run `a2b_master.exe`. It opens the GUI in your browser. Pick the COM port, load
    `adi_a2b_commandlist.xml`, and **Run on Pico** (expect `DONE 161 161 0`).
-4. Port forwarding starts by itself: each sub-node with a tunnel gets the next free port from 8080 - use the links on the Port forwarding tab.
+4. Port forwarding starts by itself: each sub-node with a tunnel gets the next free port from 8080 - use the links on the DEBUG PAGES tab.
 
 ## Status
 

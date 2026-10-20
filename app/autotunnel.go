@@ -113,13 +113,13 @@ func joinInts(v []int) string {
 }
 
 // AutoTunnel (re)starts port forwarding for whatever the buses have now.
+// Running tunnels are left alone if the scan finds the same tunnel nodes (no dropped connections).
 func (a *App) AutoTunnel() {
-	a.StopTunnel()
 	p := a.Port()
 	if p == nil {
+		a.StopTunnel()
 		return
 	}
-	a.setScan(BusScan{Msg: "scanning the A2B buses..."})
 	s, err := scanBus(p)
 	nodes, tunnels := 0, 0
 	for _, m := range s.Mains {
@@ -138,12 +138,17 @@ func (a *App) AutoTunnel() {
 	}
 	if s.Msg != "" {
 		logf("tunnel: %s", s.Msg)
+		a.StopTunnel()
 		a.setScan(s)
 		return
 	}
 	s.Msg = fmt.Sprintf("%d sub-node(s), %d with a web tunnel", nodes, tunnels)
-	logf("tunnel: %s", s.Msg)
 	a.setScan(s)
+	if a.sameTunnels(s) {
+		return
+	}
+	logf("tunnel: %s", s.Msg)
+	a.StopTunnel()
 	port := firstPort
 	for _, m := range s.Mains {
 		if len(m.Tunnels) == 0 {
@@ -163,6 +168,55 @@ func (a *App) AutoTunnel() {
 			a.setScan(s)
 		}
 	}
+}
+
+// After a command-list run the sub-nodes are only just powering up, and their RP2350 starts
+// the tunnel a few seconds later - so rescan every 2 s (up to 20 s) until every sub-node
+// found has a tunnel, or another run starts.
+func (a *App) autoTunnelAfterRun() {
+	for try := 1; ; try++ {
+		a.AutoTunnel()
+		a.mu.Lock()
+		s, running := a.scan, a.runRunning
+		a.mu.Unlock()
+		if running || a.Port() == nil || allHaveTunnels(s) || try == 10 {
+			return
+		}
+		s.Msg += fmt.Sprintf(" - waiting for sub-nodes to start (%d/10)", try)
+		a.setScan(s)
+		time.Sleep(2 * time.Second)
+	}
+}
+
+// True if the running tunnels are exactly the tunnel nodes in s.
+func (a *App) sameTunnels(s BusScan) bool {
+	_, cfgs := a.Tunnels()
+	want := map[int]string{}
+	for _, m := range s.Mains {
+		if len(m.Tunnels) > 0 {
+			want[m.Addr] = joinInts(m.Tunnels)
+		}
+	}
+	if len(cfgs) != len(want) {
+		return false
+	}
+	for _, c := range cfgs {
+		if want[c.A2BBase] != c.Nodes {
+			return false
+		}
+	}
+	return true
+}
+
+func allHaveTunnels(s BusScan) bool {
+	nodes := 0
+	for _, m := range s.Mains {
+		nodes += len(m.Nodes)
+		if len(m.Tunnels) != len(m.Nodes) {
+			return false
+		}
+	}
+	return nodes > 0
 }
 
 func (a *App) setScan(s BusScan) {

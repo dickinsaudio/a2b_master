@@ -221,7 +221,7 @@ func (a *App) Run(stop bool) (*RunSummary, error) {
 		a.runRunning = false
 		a.mu.Unlock()
 		if auto {
-			go a.AutoTunnel()
+			go a.autoTunnelAfterRun()
 		}
 	}()
 	events.publish(Event{"runstart", map[string]any{"records": l.NWire, "actions": len(l.Records)}})
