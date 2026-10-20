@@ -20,6 +20,19 @@ a2b_master.exe ──USB CDC──► Pico (RP2040) ──I2C──► EVK USBi 
 | `examples/` | SigmaStudio+ 2.3 exports for the AD2437 EVK (command list and bus config). |
 | `reference/` | Python reference implementation of the tunnel PC side, plus a device simulator. |
 
+## Build
+
+```bash
+sudo apt install cmake gcc-arm-none-eabi build-essential golang-go   # once
+git submodule update --init --recursive                              # Pico SDK + picotool (or: make submodules)
+make            # firmware (Pico), a2b_master.exe + Linux app, fake Pico  -> build/
+make help       # all targets: firmware2 (Pico 2), test, sim, desktop DESKTOP=<dir>, native PROJECT=<dir>, clean
+```
+
+In VS Code, open this folder. Ctrl+Shift+B runs `make all`, and Terminal → Run Task lists the
+other targets. C navigation uses `build/compile_commands.json` from the firmware build; Go uses
+`go.work`. picotool is built once into `build/` from `extern/picotool`.
+
 ## Quick start
 
 1. Flash `a2b_master.uf2` to a Pico (hold BOOTSEL, then copy the file).

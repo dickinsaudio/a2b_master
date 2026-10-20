@@ -1,0 +1,19 @@
+{
+    // Terminal > Run Build Task (Ctrl+Shift+B) runs "make all"; Terminal > Run Task lists the rest.
+    "version": "2.0.0",
+    "tasks": [
+        { "label": "make all",       "type": "shell", "command": "make all",       "group": { "kind": "build", "isDefault": true }, "problemMatcher": ["$gcc", "$go"] },
+        { "label": "make firmware",  "type": "shell", "command": "make firmware",  "group": "build", "problemMatcher": "$gcc" },
+        { "label": "make firmware2 (Pico 2)", "type": "shell", "command": "make firmware2", "group": "build", "problemMatcher": "$gcc" },
+        { "label": "make app",       "type": "shell", "command": "make app",       "group": "build", "problemMatcher": "$go" },
+        { "label": "make fake",      "type": "shell", "command": "make fake",      "group": "build", "problemMatcher": "$gcc" },
+        { "label": "make test",      "type": "shell", "command": "make test",      "group": "test",  "problemMatcher": ["$gcc", "$go"] },
+        { "label": "make sim (app + fake Pico)", "type": "shell", "command": "make sim", "isBackground": true, "problemMatcher": [] },
+        { "label": "make desktop",   "type": "shell", "command": "make desktop DESKTOP=${input:desktop}", "problemMatcher": [] },
+        { "label": "make clean",     "type": "shell", "command": "make clean",     "problemMatcher": [] },
+        { "label": "make submodules","type": "shell", "command": "make submodules","problemMatcher": [] }
+    ],
+    "inputs": [
+        { "id": "desktop", "type": "promptString", "description": "Copy exe + uf2 to", "default": "/mnt/c/Users/g/OneDrive/Desktop/a2b_master" }
+    ]
+}
