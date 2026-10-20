@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
 )
 
 // The four I2C addresses an AD24xx/AD243x main node can have (ADR pins), scanned in this order
@@ -35,11 +36,12 @@ type BusScan struct {
 // probeTunnel sends SUMMARY to the peripheral selected by NODEADR (PERI set) and checks the reply.
 func probeTunnel(l *LineIO, bus byte) bool {
 	req := []byte{0x01, CRC8([]byte{0x01})}
-	for try := 0; try < 4; try++ { // the RP2350 NAKs while it is briefly I2C master for its amp
+	for try := 0; try < 10; try++ { // ~50 ms: the RP2350 NAKs while it is I2C master for its amp (~15 ms)
 		r, err := I2CWriteRead(l, bus, req, 6)
 		if err == nil && len(r) == 6 && r[0] == 0xA2 && CRC8(r[:5]) == r[5] {
 			return true
 		}
+		time.Sleep(5 * time.Millisecond)
 	}
 	return false
 }
