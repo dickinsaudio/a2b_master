@@ -133,7 +133,7 @@ go test ./...                                    # XML parser (example: 161 acti
                                                  # no errors), CRC-16/CRC-8, record encoding
 
 # tunnel end to end against the real device code (tunnel_proto.c + vw5500 + http_server):
-<da_squid>/a2b_tunnel/test/build_native.sh /tmp/nat
+../device/test/build_native.sh /tmp/nat     # with this repo at <project>/extern/a2b_master
 A2B_NATIVE_SIM=/tmp/nat/native_sim go test -run TunnelE2E -v
 
 # the same, scripted with the headless binary (big.html, index.html, chunks.txt, 6 parallel):

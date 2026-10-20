@@ -1,8 +1,8 @@
 # a2b_master
 
 A2B bus bring-up and debug tool. It replaces the ADI USBi with a Raspberry Pi Pico.
-Separate from the sub-node firmware (da_squid), which pulls in `device/` (the tunnel's
-device side) as a git submodule.
+It also holds both ends of the A2B I2C web tunnel. Sub-node firmware (e.g. da_squid)
+includes this repo as a submodule and builds `device/`.
 
 ```
 a2b_master.exe ──USB CDC──► Pico (RP2040) ──I2C──► EVK USBi header ─► AD2437 main 0x6A/0x6B, DSP 0x38, codec 0x06
@@ -16,7 +16,7 @@ a2b_master.exe ──USB CDC──► Pico (RP2040) ──I2C──► EVK USBi 
 | `app/` | `a2b_master.exe`: portable Windows tool (Go, one static exe, GUI in the browser). Replays SigmaStudio+ XML, has a register console and a C-array export, and does the tunnel port forwarding. |
 | `docs/USB_PROTOCOL.md` | Pico ⇄ PC line protocol and the binary command-list format. |
 | `docs/TUNNEL_PROTOCOL.md` | Web tunnel protocol. |
-| `device/` | Device (sub-node) side of the tunnel: virtual W5500, I2C mailbox, RP2350 slave. Pulled into da_squid as a submodule. |
+| `device/` | Device (sub-node) side of the tunnel: virtual W5500, I2C mailbox, RP2350 slave. Built by the sub-node firmware via the submodule; `device/test/` is the native harness. |
 | `examples/` | SigmaStudio+ 2.3 exports for the AD2437 EVK (command list and bus config). |
 | `reference/` | Python reference implementation of the tunnel PC side, plus a device simulator. |
 
@@ -32,7 +32,7 @@ a2b_master.exe ──USB CDC──► Pico (RP2040) ──I2C──► EVK USBi 
 ## Status
 
 Everything has been tested end to end in simulation only: app → fake Pico (the
-real parser and player) → simulated AD2437 → da_squid tunnel harness running the
+real parser and player) → simulated AD2437 → `device/test` harness running the
 real HTTP server. The XML replay was byte-exact and the tunnel ran at about
 28 kB/s at 25 µs/byte. **Nothing has run on real hardware yet.**
 

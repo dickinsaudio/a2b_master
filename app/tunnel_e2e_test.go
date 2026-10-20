@@ -3,7 +3,7 @@ package main
 // End-to-end tunnel test against the native device harness (real tunnel_proto.c,
 // vw5500.c and http_server.cpp):
 //
-//   <da_squid>/a2b_tunnel/test/build_native.sh /tmp/nat
+//   ../device/test/build_native.sh /tmp/nat
 //   A2B_NATIVE_SIM=/tmp/nat/native_sim go test -run TunnelE2E -v
 //
 // Optional: A2B_SIM_ARGS="--byte-us 25 --nack-rate 0.02" (the default).

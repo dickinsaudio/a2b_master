@@ -180,7 +180,7 @@ autorun:
 ```sh
 python3 test/test_fake.py --fake /tmp/fake/fake_pico
 # optional tunnel checks against the tunnel device simulator:
-<da_squid>/a2b_tunnel/test/build_native.sh /tmp/nsim && /tmp/nsim/native_sim --port 9500 --node 0 &
+../device/test/build_native.sh /tmp/nsim && /tmp/nsim/native_sim --port 9500 --node 0 &
 python3 test/test_fake.py --fake /tmp/fake/fake_pico --tunnel-port 9500
 ```
 

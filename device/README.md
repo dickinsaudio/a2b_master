@@ -6,8 +6,8 @@ pages appear on the PC at `http://localhost:8080+node/`. No W5500 is needed.
 This folder is the code that runs on the sub-node (RP2350). The PC side is
 `../app` (with the Python reference in `../reference`), the main-node bridge is
 `../firmware`, and the wire protocol is [`../docs/TUNNEL_PROTOCOL.md`](../docs/TUNNEL_PROTOCOL.md).
-A product pulls this repo in as a git submodule and compiles the files in this
-folder into its firmware (da_squid: `extern/a2b_master`).
+A product pulls this repo in as a git submodule at `extern/a2b_master` and
+compiles the files in this folder into its firmware.
 
 ```
  browser ──TCP──► a2b_master app    ──USB──► I2C master ──► AD242x main ══A2B══► AD242x sub-node
@@ -65,6 +65,7 @@ re-listened on that socket.
 | `vw5500.c/h` | Virtual W5500 and SPI frame mux. Portable C. |
 | `tunnel_proto.c/h` | Byte-level I2C mailbox protocol (`tp_rx/tp_tx/tp_stop`). Portable C. |
 | `a2b_tunnel_rp2350.c`, `a2b_tunnel.h` | I2C0 slave ISR, master/slave switching, W5500 probe, start-up. |
+| `test/native_sim.cpp`, `test/build_native.sh` | Native Linux harness. Runs the host project's **real** HttpServer and ioLibrary against the code above, with a TCP stand-in for the I2C link. `../app` and `../firmware` use it for their end-to-end tests. |
 
 `vw5500.c` and `tunnel_proto.c` are portable C. `a2b_tunnel_rp2350.c` needs the
 Pico SDK and the WIZnet ioLibrary (`wizchip_conf.h`, `wizchip_spi.h`).
@@ -81,11 +82,7 @@ Pico SDK and the WIZnet ioLibrary (`wizchip_conf.h`, `wizchip_spi.h`).
    transaction (provide weak no-op versions so the product builds without the tunnel).
 4. The product provides `i2c_initialize()` (pins, pull-ups, master baud).
 
-The da_squid integration is guarded by `A2B_TUNNEL` in `w5500_udp.cpp`,
-`peripherals.cpp` and `CMakeLists.txt`. Its `a2b_tunnel/test/` holds the native
-Linux harness (`native_sim`), which runs the **real** HttpServer, the real
-ioLibrary and the code in this folder behind a TCP stand-in for the I2C link.
-`../app` and `../firmware` use it for their end-to-end tests.
+In da_squid this is all guarded by the `A2B_TUNNEL` CMake option.
 
 ## Throughput
 
@@ -141,10 +138,12 @@ ioLibrary and the code in this folder behind a TCP stand-in for the I2C link.
 
 ## Try it (no hardware)
 
-From a da_squid checkout:
+`test/build_native.sh` assumes this repo sits at `<project>/extern/a2b_master` in a
+project with `daes67_lite/http_server.cpp` and `WIZnet-PICO-C`. Set `PROJECT`, `SERVER`
+or `IOLIB` to build from somewhere else.
 
 ```
-a2b_tunnel/test/build_native.sh /tmp/a2bsim
+device/test/build_native.sh /tmp/a2bsim
 /tmp/a2bsim/native_sim --port 9500 --byte-us 50 --nack-rate 0.02
 a2b_master -no-web -tunnel sim:127.0.0.1:9500 -nodes 0
 # browse http://localhost:8080/big.html   (also index.html, chunks.txt)
