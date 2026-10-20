@@ -361,6 +361,8 @@ func (a *App) Handler() http.Handler {
 		w.Header().Set("Cache-Control", "no-store")
 		c, logs := events.subscribe()
 		defer events.unsubscribe(c)
+		a.pageOpened()
+		defer a.pageClosed()
 		for _, m := range logs {
 			b, _ := json.Marshal(Event{"log", m})
 			fmt.Fprintf(w, "data: %s\n\n", b)

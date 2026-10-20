@@ -59,6 +59,7 @@ func main() {
 		settingsF = flag.String("settings", "", "settings file (default a2b_master.json next to the exe)")
 		duration  = flag.Float64("duration", 0, "headless: exit after this many seconds")
 		showVer   = flag.Bool("version", false, "print version")
+		stay      = flag.Bool("stay", false, "keep running after the browser page is closed")
 	)
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "a2b_master %s - Pico A2B master tool\n\nUsage: a2b_master [options]\n\n", version)
@@ -184,11 +185,14 @@ func main() {
 			}
 		}
 		url := "http://" + strings.Replace(ln.Addr().String(), "0.0.0.0", "127.0.0.1", 1) + "/"
-		logf("UI at %s  (close this window or press Ctrl-C to quit)", url)
+		logf("UI at %s  (closing the browser page quits; or close this window / Ctrl-C)", url)
 		srv := &http.Server{Handler: a.Handler(), ReadHeaderTimeout: 10 * time.Second}
 		go srv.Serve(ln)
 		if !*noBrowser {
 			openBrowser(url)
+		}
+		if !*stay {
+			go a.QuitWhenNoPage(5 * time.Second)       // Closing the page closes the program
 		}
 	}
 

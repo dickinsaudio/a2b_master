@@ -25,6 +25,9 @@ type App struct {
 	runRunning   bool
 	quit         chan struct{}
 	auto         bool    // GUI mode: start port forwarding automatically (scan the bus)
+	pages        int       // Browser pages connected to the event stream
+	pageSeen     bool      // At least one page has connected
+	pagesGone    time.Time // When the last page disconnected
 	scan         BusScan // last bus scan / port forwarding status
 	boot         BootInfo
 }
@@ -311,4 +314,39 @@ func (a *App) Tunnel() (*Tunnel, TunnelConfig) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return a.tunnel, a.tunnelCfg
+}
+
+// The GUI keeps an event stream open, so "no page connected" means the browser tab was closed
+// (a reload reconnects within a second). QuitWhenNoPage ends the program after grace without one.
+func (a *App) pageOpened() {
+	a.mu.Lock()
+	a.pages++
+	a.pageSeen = true
+	a.mu.Unlock()
+}
+
+func (a *App) pageClosed() {
+	a.mu.Lock()
+	a.pages--
+	if a.pages == 0 {
+		a.pagesGone = time.Now()
+	}
+	a.mu.Unlock()
+}
+
+func (a *App) QuitWhenNoPage(grace time.Duration) {
+	for range time.Tick(time.Second) {
+		a.mu.Lock()
+		gone := a.pageSeen && a.pages == 0 && time.Since(a.pagesGone) > grace
+		a.mu.Unlock()
+		if gone {
+			logf("browser page closed - quitting")
+			select {
+			case <-a.quit:
+			default:
+				close(a.quit)
+			}
+			return
+		}
+	}
 }
