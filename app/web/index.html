@@ -97,15 +97,16 @@ progress { width: 160px; height: 10px; }
     </div>
     <div class="row" id="listsum"><span class="muted">No command list loaded.</span></div>
     <div class="row">
-      <button id="btnRun" class="pri">Run on Pico</button>
+      <button id="btnRun" class="pri" title="Copies the list into Pico RAM and runs it once, like a SigmaStudio replay through the USBi. Nothing is stored - flash is not touched.">&#9654; Run once</button>
       <label><input type="checkbox" id="stopfail"> stop on first failure</label>
       <progress id="runprog" value="0" max="1"></progress>
       <span id="runstat" class="mono"></span>
       <span style="flex:1"></span>
-      <button id="btnSave">Save to Pico flash</button>
-      <label><input type="checkbox" id="autorun"> autorun on boot</label>
-      <button id="btnAutorun">Apply</button>
-      <button id="btnInfo">Read Pico list info</button>
+      <span class="muted">Stored on Pico:</span>
+      <button id="btnSave" title="Writes this list to Pico flash (persistent). Does not run it.">Save to flash</button>
+      <label title="If on, the Pico runs the list saved in flash 500 ms after every power-up, with no PC needed"><input type="checkbox" id="autorun"> autorun on boot</label>
+      <button id="btnAutorun" title="Stores the autorun setting in Pico flash">Apply</button>
+      <button id="btnInfo" title="Shows what is in Pico RAM and flash, and whether it matches the loaded file">Pico list info</button>
       <button id="btnExport">Export C array</button>
     </div>
     <div id="listinfo" class="mono muted"></div>
