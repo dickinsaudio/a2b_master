@@ -2,7 +2,7 @@
 
 This lets a browser on the PC reach the HTTP server running on the RP2350 of an A2B
 sub-node. The RP2350's W5500 sockets are tunnelled over I2C, as virtual sockets
-reached through the main AD242x. Wire protocol: [`../PROTOCOL.md`](../PROTOCOL.md).
+reached through the main AD242x. Wire protocol: [`../docs/TUNNEL_PROTOCOL.md`](../docs/TUNNEL_PROTOCOL.md).
 
 | file | purpose |
 |---|---|
