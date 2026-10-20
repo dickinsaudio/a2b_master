@@ -41,6 +41,7 @@ bool a2b_tunnel_w5500_present(void);        // Probe VERSIONR on the real SPI bu
 void a2b_tunnel_start(bool w5500_present);  // Install the virtual chip and start the I2C slave
 bool a2b_tunnel_only(void);                 // True if running without a W5500 (skip DHCP etc.)
 int  a2b_tunnel_stats_text(char *buf, int len);
+void a2b_tunnel_poll(void);                 // Main loop, ~1 s: prints tunnel/I2C state when it changes
 
 // Hooks called by peripherals.cpp around every I2C master transaction (weak no-ops there)
 void i2c_master_acquire(void);
