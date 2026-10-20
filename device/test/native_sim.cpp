@@ -39,6 +39,13 @@ static const char *cgi_hello(const char *, const char *, int, char *buf)
     return buf;
 }
 
+// Returns its arguments - checks that a request split over many tunnel chunks arrives whole
+static const char *cgi_echo(const char *, const char *arg, int len, char *buf)
+{
+    snprintf(buf, len, "%s", arg);
+    return buf;
+}
+
 static int chunk_count;
 static int chunk_numbers(int, int len, char *buf)
 {
@@ -85,6 +92,7 @@ int main(int argc, char **argv)
     server.add("big.html", big_page.c_str(), (int)big_page.size(), false, TYPE_HTML);
     server.add_cgi("index.html", cgi_hello, false);
     server.add_chunked("chunks.txt", chunk_numbers, TYPE_TEXT, false);
+    server.add_cgi("echo", cgi_echo, false, TYPE_TEXT);
     printf("BIG PAGE %zu bytes\n", big_page.size());
 
     int ls = socket(AF_INET, SOCK_STREAM, 0);
