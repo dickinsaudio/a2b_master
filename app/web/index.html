@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>a2b_master</title>
+<style>
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --fg: #1d2330; --muted: #6b7280; --line: #d9dde3;
+  --accent: #2563eb; --accent-fg: #fff; --ok: #15803d; --ok-bg: #e7f6ec; --bad: #b91c1c; --bad-bg: #fdecec;
+  --warn: #a16207; --warn-bg: #fdf6e3; --input: #fff; --row: #fafbfc; --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171c; --panel: #1c2027; --fg: #e3e6eb; --muted: #8b93a1; --line: #2e343e;
+    --accent: #3b82f6; --ok: #4ade80; --ok-bg: #12301d; --bad: #f87171; --bad-bg: #3a1717;
+    --warn: #facc15; --warn-bg: #3a3212; --input: #12151a; --row: #20252d;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--fg); font: 13px/1.4 "Segoe UI", system-ui, sans-serif; display: flex; flex-direction: column; }
+header { display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+header h1 { font-size: 14px; margin: 0 10px 0 0; letter-spacing: .3px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); display: inline-block; }
+.dot.on { background: var(--ok); } .dot.busy { background: var(--warn); }
+nav { display: flex; gap: 2px; padding: 0 12px; background: var(--panel); border-bottom: 1px solid var(--line); }
+nav button { border: 0; border-bottom: 2px solid transparent; background: none; color: var(--muted); padding: 7px 12px; border-radius: 0; font-weight: 600; }
+nav button.act { color: var(--fg); border-bottom-color: var(--accent); }
+main { flex: 1; overflow: auto; padding: 10px 12px; min-height: 0; }
+section { display: none; } section.act { display: block; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px; margin-bottom: 10px; }
+.card h3 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; color: var(--muted); letter-spacing: .5px; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+label { color: var(--muted); display: inline-flex; align-items: center; gap: 4px; }
+input, select, button { font: inherit; color: var(--fg); background: var(--input); border: 1px solid var(--line); border-radius: 4px; padding: 3px 6px; }
+input[type=checkbox] { padding: 0; }
+input.hex { width: 52px; font-family: var(--mono); } input.num { width: 60px; } input.wide { width: 320px; } input.mid { width: 170px; }
+button { background: var(--panel); cursor: pointer; padding: 4px 10px; }
+button:hover:not(:disabled) { border-color: var(--accent); }
+button.pri { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+button:disabled { opacity: .45; cursor: default; }
+.mono { font-family: var(--mono); }
+.muted { color: var(--muted); }
+.ok { color: var(--ok); } .bad { color: var(--bad); } .warn { color: var(--warn); }
+table { border-collapse: collapse; width: 100%; font-size: 12px; }
+th, td { text-align: left; padding: 2px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { position: sticky; top: 0; background: var(--panel); color: var(--muted); font-weight: 600; z-index: 1; }
+tbody tr:nth-child(even) td { background: var(--row); }
+tr.rok td { background: var(--ok-bg) !important; } tr.rbad td { background: var(--bad-bg) !important; }
+tr.rerr td { background: var(--bad-bg) !important; } tr.rwarn td.w { color: var(--warn); }
+td.bytes { font-family: var(--mono); max-width: 520px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+td.res { font-family: var(--mono); white-space: nowrap; }
+.tablewrap { max-height: calc(100vh - 360px); min-height: 160px; overflow: auto; border: 1px solid var(--line); border-radius: 4px; }
+#log { height: 150px; overflow: auto; background: var(--panel); border-top: 1px solid var(--line); font: 11.5px/1.35 var(--mono); padding: 4px 12px; white-space: pre-wrap; flex: none; }
+#logbar { display: flex; justify-content: space-between; align-items: center; padding: 2px 12px; background: var(--panel); border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; }
+#logbar button { padding: 0 6px; font-size: 11px; }
+.pill { display: inline-block; padding: 1px 7px; border-radius: 9px; font-size: 11px; font-weight: 600; background: var(--row); border: 1px solid var(--line); }
+.pill.ok { background: var(--ok-bg); } .pill.bad { background: var(--bad-bg); }
+ul.msgs { margin: 4px 0; padding-left: 18px; max-height: 120px; overflow: auto; font-size: 12px; }
+#conout { font: 12px/1.4 var(--mono); max-height: 300px; overflow: auto; background: var(--input); border: 1px solid var(--line); border-radius: 4px; padding: 4px 8px; white-space: pre-wrap; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 10px; }
+.kv { display: grid; grid-template-columns: max-content max-content; gap: 2px 10px; }
+#toast { position: fixed; right: 14px; bottom: 190px; background: var(--bad); color: #fff; padding: 6px 12px; border-radius: 5px; display: none; max-width: 50vw; }
+progress { width: 160px; height: 10px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>a2b_master</h1>
+  <span class="dot" id="cdot"></span>
+  <select id="portsel" class="mid" title="COM port"></select>
+  <button id="btnRefresh" title="Refresh port list">&#8635;</button>
+  <input id="porturl" class="mid" placeholder="or COM5 / tcp:127.0.0.1:9600" title="Port URL (overrides the list when filled)">
+  <button id="btnConnect" class="pri">Connect</button>
+  <button id="btnDisconnect">Disconnect</button>
+  <button id="btnPing">Ping</button>
+  <span id="pong" class="mono muted"></span>
+  <span style="flex:1"></span>
+  <span id="busy" class="muted"></span>
+  <button id="btnQuit" title="Stop the a2b_master program">Quit</button>
+</header>
+<nav>
+  <button data-tab="list" class="act">Command list</button>
+  <button data-tab="console">Register console</button>
+  <button data-tab="tunnel">Port forwarding</button>
+</nav>
+<main>
+<section id="tab-list" class="act">
+  <div class="card">
+    <div class="row">
+      <label>XML file <input type="file" id="xmlfile" accept=".xml,text/xml"></label>
+      <span class="muted">or path</span>
+      <input id="xmlpath" class="wide" placeholder="C:\path\to\adi_a2b_commandlist.xml">
+      <button id="btnLoadPath">Load</button>
+      <button id="btnReload" title="Reload the file from the path">Reload</button>
+    </div>
+    <div class="row" id="listsum"><span class="muted">No command list loaded.</span></div>
+    <div class="row">
+      <button id="btnRun" class="pri">Run on Pico</button>
+      <label><input type="checkbox" id="stopfail"> stop on first failure</label>
+      <progress id="runprog" value="0" max="1"></progress>
+      <span id="runstat" class="mono"></span>
+      <span style="flex:1"></span>
+      <button id="btnSave">Save to Pico flash</button>
+      <label><input type="checkbox" id="autorun"> autorun on boot</label>
+      <button id="btnAutorun">Apply</button>
+      <button id="btnInfo">Read Pico list info</button>
+      <button id="btnExport">Export C array</button>
+    </div>
+    <div id="listinfo" class="mono muted"></div>
+    <div id="msgs"></div>
+  </div>
+  <div class="tablewrap">
+    <table id="rectab">
+      <thead><tr><th>#</th><th>CellName</th><th>ParamName</th><th>op</th><th>addr</th><th>bytes</th><th>result</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</section>
+
+<section id="tab-console">
+  <div class="grid2">
+    <div class="card">
+      <h3>I2C read / write</h3>
+      <div class="row">
+        <label>addr 0x<input id="caddr" class="hex" value="6A"></label>
+        <label>reg width <select id="cregw"><option value="1">1</option><option value="2">2</option><option value="0">none</option></select></label>
+        <label>reg 0x<input id="creg" class="hex" value="02"></label>
+      </div>
+      <div class="row">
+        <label>read length <input id="clen" class="num" type="number" min="1" max="255" value="1"></label>
+        <button id="btnRead" class="pri">Read</button>
+      </div>
+      <div class="row">
+        <label>data <input id="cdata" class="mid mono" placeholder="hex bytes, e.g. 00 01"></label>
+        <button id="btnWrite">Write</button>
+      </div>
+      <h3 style="margin-top:10px">Main node quick reads</h3>
+      <div class="row">
+        <label>main node 0x<input id="cbase" class="hex" value="6A"></label>
+        <button id="btnVendor">VENDOR / PRODUCT / VERSION</button>
+        <button id="btnInttype">INTTYPE</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Node registers (NODEADR = N, then access via BUS = base+1)</h3>
+      <div class="row">
+        <label>node <input id="nnode" class="num" type="number" min="0" max="15" value="0"></label>
+        <label>reg 0x<input id="nreg" class="hex" value="02"></label>
+        <label>length <input id="nlen" class="num" type="number" min="1" max="255" value="3"></label>
+        <button id="btnNodeRead" class="pri">Read</button>
+      </div>
+      <div class="row">
+        <label>data <input id="ndata" class="mid mono" placeholder="hex bytes"></label>
+        <button id="btnNodeWrite">Write</button>
+      </div>
+      <div class="muted" style="font-size:12px">Leaves NODEADR = N (PERI off). A running tunnel re-selects its node automatically.</div>
+      <h3 style="margin-top:10px">Raw protocol line</h3>
+      <div class="row">
+        <input id="rawline" class="wide mono" placeholder="P | W 6A 0100 | R 6A 3 02 | B 400 | LI">
+        <button id="btnRaw">Send</button>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Results <button id="btnConClear" style="float:right;padding:0 6px">clear</button></h3>
+    <div id="conout"></div>
+  </div>
+</section>
+
+<section id="tab-tunnel">
+  <div class="card">
+    <h3>A2B I2C web tunnel</h3>
+    <div class="row">
+      <label>transport <input id="ttr" class="mid mono" list="trlist" value="pico"></label>
+      <datalist id="trlist"><option value="pico"><option value="sim:127.0.0.1:9500"></datalist>
+      <label>A2B base 0x<input id="tbase" class="hex" value="6A"></label>
+      <label>tunnel slave 0x<input id="taddr" class="hex" value="2A"></label>
+      <label>nodes <input id="tnodes" class="num" value="0"></label>
+      <label>base port <input id="tport" class="num" type="number" value="8080"></label>
+      <label>bind <input id="tbind" class="mid" value="127.0.0.1" style="width:110px"></label>
+    </div>
+    <div class="row">
+      <label>chunk <input id="tchunk" class="num" type="number" min="1" max="240" value="64"></label>
+      <label>idle poll ms <input id="tidle" class="num" type="number" min="1" value="50"></label>
+      <label><input type="checkbox" id="t400"> set sub-node I2C 400 kHz</label>
+      <label><input type="checkbox" id="tverb"> log every transaction</label>
+      <button id="btnTStart" class="pri">Start</button>
+      <button id="btnTStop">Stop</button>
+      <span id="tstate" class="muted"></span>
+    </div>
+    <div class="muted" style="font-size:12px">transport <span class="mono">pico</span> uses the connected Pico (NODEADR/CHIP handled automatically; tunnel polling pauses while console or command-list jobs run). <span class="mono">sim:HOST:PORT</span> talks to the native simulator directly.</div>
+  </div>
+  <div class="card">
+    <table id="ttab">
+      <thead><tr><th>node</th><th>link</th><th>state</th><th>conns (act / queued)</th><th>up</th><th>down</th><th>down rate</th><th>txn/s</th><th>retries [nack crc io fail]</th><th>last error</th></tr></thead>
+      <tbody><tr><td colspan="10" class="muted">not running</td></tr></tbody>
+    </table>
+  </div>
+</section>
+</main>
+<div id="logbar"><span>Log</span><span><label><input type="checkbox" id="logauto" checked> follow</label> <button id="btnLogClear">clear</button></span></div>
+<div id="log"></div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+let state = {}, list = null, runRes = {}, connected = false;
+
+function toast(msg) {
+  const t = $("toast"); t.textContent = msg; t.style.display = "block";
+  clearTimeout(toast.h); toast.h = setTimeout(() => t.style.display = "none", 5000);
+}
+async function api(path, body, raw) {
+  const opt = body === undefined ? {} : { method: "POST", body: raw ? body : JSON.stringify(body) };
+  const r = await fetch(path, opt);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { const e = new Error(j.error || r.statusText); throw e; }
+  return j;
+}
+async function act(fn) { try { return await fn(); } catch (e) { toast(e.message); } }
+const hex2 = v => (v >>> 0).toString(16).toUpperCase().padStart(2, "0");
+const hex4 = v => (v >>> 0).toString(16).toUpperCase().padStart(4, "0");
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+function kb(n) { return n < 10000 ? n + " B" : n < 1e7 ? (n / 1000).toFixed(1) + " kB" : (n / 1e6).toFixed(2) + " MB"; }
+
+// ---- tabs
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("nav button").forEach(x => x.classList.toggle("act", x === b));
+  document.querySelectorAll("section").forEach(s => s.classList.toggle("act", s.id === "tab-" + b.dataset.tab));
+  try { localStorage.setItem("tab", b.dataset.tab); } catch (e) {}
+});
+try { const t = location.hash.slice(1) || localStorage.getItem("tab"); if (t) document.querySelector(`nav button[data-tab=${t}]`)?.click(); } catch (e) {}
+
+// ---- connection
+async function refreshPorts() {
+  const ps = await act(() => api("/api/ports")) || [];
+  const sel = $("portsel"), cur = sel.value || (state.settings && state.settings.port || "").replace(/^serial:/, "");
+  sel.innerHTML = ps.map(p => `<option value="${esc(p.name)}">${esc(p.name)}${p.desc ? " - " + esc(p.desc) : ""}${p.pico ? " (Pico)" : ""}</option>`).join("")
+    || `<option value="">(no COM ports)</option>`;
+  if ([...sel.options].some(o => o.value === cur)) sel.value = cur;
+}
+$("btnRefresh").onclick = refreshPorts;
+$("btnConnect").onclick = () => act(async () => {
+  const url = $("porturl").value.trim() || $("portsel").value;
+  if (!url) throw new Error("choose a port");
+  $("pong").textContent = "connecting...";
+  try { const r = await api("/api/connect", { port: url }); $("pong").textContent = r.pong; }
+  catch (e) { $("pong").textContent = ""; throw e; }
+  poll();
+});
+$("btnDisconnect").onclick = () => act(async () => { await api("/api/disconnect", {}); poll(); });
+$("btnPing").onclick = () => act(async () => { const r = await api("/api/ping", {}); $("pong").textContent = r.pong; });
+$("btnQuit").onclick = () => { if (confirm("Stop the a2b_master program?")) api("/api/quit", {}).then(() => document.body.innerHTML = "<p style='padding:20px'>a2b_master stopped. You can close this tab.</p>"); };
+
+// ---- command list
+function showList(l) {
+  list = l; runRes = {};
+  if (!l) return;
+  const s = `<b>${esc(l.name)}</b> <span class="mono">${l.records.length} actions: ${l.writes} W, ${l.reads} R, ${l.delays} delay &middot; ${l.nwire} records, ${l.bytes} bytes, CRC ${hex4(l.crc)}</span> ` +
+    (l.errors.length ? `<span class="pill bad">${l.errors.length} errors</span>` : `<span class="pill ok">no errors</span>`) +
+    (l.warnings.length ? ` <span class="pill">${l.warnings.length} warnings</span>` : "");
+  $("listsum").innerHTML = s;
+  $("msgs").innerHTML = (l.errors.length ? `<ul class="msgs bad">${l.errors.map(e => `<li>${esc(e)}</li>`).join("")}</ul>` : "") +
+    (l.warnings.length ? `<ul class="msgs warn">${l.warnings.map(e => `<li>${esc(e)}</li>`).join("")}</ul>` : "");
+  const tb = $("rectab").tBodies[0];
+  tb.innerHTML = l.records.map(r => {
+    const cls = r.err ? "rerr" : r.warn ? "rwarn" : "";
+    const bytes = r.op === "D" ? r.detail : esc(r.detail);
+    return `<tr id="rec${r.idx}" class="${cls}" title="${esc(r.err || r.warn || ("record bytes: " + r.hex))}"><td>${r.idx}</td><td>${esc(r.cell)}</td><td>${esc(r.param)}</td><td>${r.op}</td>` +
+      `<td class="mono">${r.op === "D" || r.op === "?" ? "" : "0x" + hex2(r.addr)}</td><td class="bytes w">${bytes}</td><td class="res">${r.err ? '<span class="bad">' + esc(r.err) + "</span>" : ""}</td></tr>`;
+  }).join("");
+  $("runprog").max = l.nwire || 1; $("runprog").value = 0; $("runstat").textContent = "";
+}
+async function loadListFromServer() { const l = await act(() => api("/api/list")); if (l) showList(l); }
+$("xmlfile").onchange = () => act(async () => {
+  const f = $("xmlfile").files[0]; if (!f) return;
+  const l = await api("/api/list/upload?name=" + encodeURIComponent(f.name), await f.arrayBuffer(), true);
+  showList(l);
+});
+$("btnLoadPath").onclick = () => act(async () => showList(await api("/api/list/load", { path: $("xmlpath").value })));
+$("btnReload").onclick = $("btnLoadPath").onclick;
+$("btnRun").onclick = () => act(async () => {
+  if (!list) throw new Error("load a command list first");
+  clearResults();
+  await api("/api/list/run", { stop: $("stopfail").checked });
+});
+$("btnSave").onclick = () => act(async () => { if (!confirm("Upload the loaded list and save it to the Pico flash?")) return; const r = await api("/api/list/save", {}); $("listinfo").textContent = "saved to flash: " + r.bytes + " bytes"; });
+$("btnAutorun").onclick = () => act(async () => { const r = await api("/api/list/autorun", { on: $("autorun").checked }); $("listinfo").textContent = "autorun " + (r.autorun ? "ON" : "OFF"); });
+$("btnInfo").onclick = () => act(async () => {
+  const r = await api("/api/list/info", {}); const i = r.info;
+  const m = v => v === undefined ? "" : v ? '<span class="ok">MATCH</span>' : '<span class="bad">differs</span>';
+  $("autorun").checked = i.autorun;
+  $("listinfo").innerHTML = `Pico RAM: ${i.bytes} bytes, ${i.records} records, CRC ${hex4(i.crc)} ${m(r.ram_match)} &middot; flash: ${i.flash_bytes} bytes, CRC ${hex4(i.flash_crc)} ${m(r.flash_match)} &middot; autorun ${i.autorun ? "ON" : "OFF"}` +
+    (r.file_crc !== undefined ? ` &middot; file ${r.file_bytes} bytes, CRC ${hex4(r.file_crc)}` : "");
+});
+$("btnExport").onclick = () => { if (!list) return toast("load a command list first"); location.href = "/api/list/export.h"; };
+
+function clearResults() {
+  runRes = {};
+  if (!list) return;
+  list.records.forEach(r => { const tr = $("rec" + r.idx); if (tr && !r.err) { tr.classList.remove("rok", "rbad"); tr.cells[6].innerHTML = ""; } });
+  $("runprog").value = 0; $("runstat").textContent = "running...";
+}
+let lastScroll = 0;
+function onRec(r) {
+  if (!list || r.idx < 0) return;
+  const tr = $("rec" + r.idx); if (!tr) return;
+  const prev = runRes[r.idx]; const ok = r.status === "OK" || r.status === "D";
+  const failed = !ok || !!(prev && prev.failed);
+  runRes[r.idx] = { failed };
+  tr.classList.toggle("rok", !failed); tr.classList.toggle("rbad", failed);
+  let txt = r.status === "D" ? "D" : r.status;
+  if (r.data) txt += " " + r.data.replace(/(..)/g, "$1 ").trim();
+  if (r.text) txt += " " + r.text;
+  tr.cells[6].innerHTML = `<span class="${ok ? "ok" : "bad"}">${esc(txt)}</span>`;
+  $("runprog").value = r.wire + 1;
+  $("runstat").textContent = `${r.wire + 1} / ${list.nwire}`;
+  const now = performance.now();
+  if (now - lastScroll > 150) { lastScroll = now; tr.scrollIntoView({ block: "nearest" }); }
+}
+function onDone(s) {
+  if (s.err) $("runstat").innerHTML = `<span class="bad">${esc(s.err)}</span>`;
+  else $("runstat").innerHTML = `DONE ${s.records} records: <span class="ok">${s.ok} OK</span>, <span class="${s.failed ? "bad" : "muted"}">${s.failed} failed</span>, ${s.ms} ms`;
+}
+
+// ---- console
+function conOut(line, cls) {
+  const d = document.createElement("div"); d.className = cls || ""; d.textContent = new Date().toLocaleTimeString() + "  " + line;
+  $("conout").prepend(d);
+}
+async function i2c(q, label) {
+  try { const r = await api("/api/i2c", q); conOut(label + " -> " + (r.data !== undefined ? r.data : r.reply), "ok"); return r; }
+  catch (e) { conOut(label + " -> " + e.message, "bad"); }
+}
+function regDesc() { const w = +$("cregw").value; return w ? ` [${$("creg").value.toUpperCase()}]` : ""; }
+$("btnRead").onclick = () => i2c({ op: "read", addr: $("caddr").value, regw: +$("cregw").value, reg: $("creg").value, n: +$("clen").value },
+  `R ${$("caddr").value.toUpperCase()}${regDesc()} x${$("clen").value}`);
+$("btnWrite").onclick = () => i2c({ op: "write", addr: $("caddr").value, regw: +$("cregw").value, reg: $("creg").value, data: $("cdata").value },
+  `W ${$("caddr").value.toUpperCase()}${regDesc()} ${$("cdata").value}`);
+$("btnVendor").onclick = async () => {
+  const r = await i2c({ op: "read", addr: $("cbase").value, regw: 1, reg: "02", n: 3 }, `${$("cbase").value.toUpperCase()} VENDOR/PRODUCT/VERSION`);
+  if (r && r.data) { const b = r.data.split(" "); conOut(`  VENDOR 0x${b[0]} (AD=0xAD)  PRODUCT 0x${b[1]}  VERSION 0x${b[2]}`, "muted"); }
+};
+$("btnInttype").onclick = () => i2c({ op: "read", addr: $("cbase").value, regw: 1, reg: "17", n: 1 }, `${$("cbase").value.toUpperCase()} INTTYPE`);
+async function nodeOp(write) {
+  const q = { base: $("cbase").value, node: +$("nnode").value, reg: $("nreg").value, n: +$("nlen").value, data: write ? $("ndata").value : "" };
+  if (write && !q.data.trim()) return toast("enter data bytes");
+  const label = `node ${q.node} reg ${q.reg.toUpperCase()} ` + (write ? "<- " + q.data : "x" + q.n);
+  try { const r = await api("/api/node", q); conOut(label + " -> " + (write ? "OK" : r.data), "ok"); }
+  catch (e) { conOut(label + " -> " + e.message, "bad"); }
+}
+$("btnNodeRead").onclick = () => nodeOp(false);
+$("btnNodeWrite").onclick = () => nodeOp(true);
+$("btnRaw").onclick = () => i2c({ op: "raw", line: $("rawline").value }, "> " + $("rawline").value);
+$("rawline").onkeydown = e => { if (e.key === "Enter") $("btnRaw").click(); };
+$("btnConClear").onclick = () => $("conout").innerHTML = "";
+
+// ---- tunnel
+function tunnelCfg() {
+  return { transport: $("ttr").value.trim(), a2b_base: parseInt($("tbase").value, 16), tunnel_addr: parseInt($("taddr").value, 16),
+    nodes: $("tnodes").value, base_port: +$("tport").value, bind: $("tbind").value.trim(), chunk: +$("tchunk").value,
+    idle_poll_ms: +$("tidle").value, set_400k: $("t400").checked, verbose: $("tverb").checked };
+}
+function fillTunnelCfg(c) {
+  $("ttr").value = c.transport || "pico"; $("tbase").value = hex2(c.a2b_base); $("taddr").value = hex2(c.tunnel_addr);
+  $("tnodes").value = c.nodes; $("tport").value = c.base_port; $("tbind").value = c.bind; $("tchunk").value = c.chunk;
+  $("tidle").value = c.idle_poll_ms; $("t400").checked = !!c.set_400k; $("tverb").checked = !!c.verbose;
+}
+$("btnTStart").onclick = () => act(async () => { await api("/api/tunnel/start", tunnelCfg()); poll(); });
+$("btnTStop").onclick = () => act(async () => { await api("/api/tunnel/stop", {}); poll(); });
+function showTunnel(st) {
+  const t = st.tunnel, tb = $("ttab").tBodies[0];
+  $("btnTStart").disabled = !!t; $("btnTStop").disabled = !t;
+  $("tstate").innerHTML = t ? `<span class="ok">running</span> (${esc(t.cfg.transport)})` : st.tunnel_err ? `<span class="bad">${esc(st.tunnel_err)}</span>` : "stopped";
+  if (!t) { tb.innerHTML = `<tr><td colspan="10" class="muted">not running</td></tr>`; return; }
+  tb.innerHTML = t.nodes.map(n => `<tr><td>${n.node}</td><td><a href="${n.url}" target="_blank">${n.url}</a></td>` +
+    `<td>${n.online ? '<span class="pill ok">reachable</span>' : '<span class="pill bad">unreachable</span>'}</td>` +
+    `<td>${n.conns} (${n.active} / ${n.queued})</td><td>${kb(n.up)}</td><td>${kb(n.down)}</td>` +
+    `<td>${(n.down_rate / 1000).toFixed(1)} kB/s</td><td>${n.txn_rate.toFixed(0)}</td>` +
+    `<td>${n.retries} [${n.nacks} ${n.crc} ${n.io} ${n.failed}]</td><td class="muted" style="max-width:280px">${esc(n.err)}</td></tr>`).join("");
+}
+
+// ---- state polling
+let first = true;
+async function poll() {
+  let st;
+  try { st = await api("/api/state"); } catch (e) { $("cdot").className = "dot"; $("busy").textContent = "a2b_master not reachable"; return; }
+  state = st; connected = st.connected;
+  const p = st.port;
+  $("cdot").className = "dot" + (connected ? (p.busy || p.queue ? " busy" : " on") : "");
+  $("cdot").title = connected ? p.url : "not connected";
+  if (connected && !$("pong").textContent) $("pong").textContent = p.pong;
+  if (!connected) $("pong").textContent = "";
+  $("busy").textContent = connected ? (p.busy ? "busy: " + p.busy : "") + (p.queue > 1 ? ` (${p.queue} queued)` : "") + "  " + p.url : "not connected";
+  ["btnDisconnect", "btnPing", "btnRun", "btnSave", "btnAutorun", "btnInfo"].forEach(id => $(id).disabled = !connected);
+  $("btnRun").disabled = !connected || !list || list.errors.length > 0 || st.run.running;
+  if (first) {
+    first = false;
+    const s = st.settings;
+    $("xmlpath").value = s.xml_path || ""; $("stopfail").checked = !!s.stop_on_fail;
+    if (s.port && s.port.startsWith("tcp:")) $("porturl").value = s.port;
+    $("caddr").value = s.console_addr || "6A";
+    $("cbase").value = hex2(s.tunnel.a2b_base || 0x6A);
+    fillTunnelCfg(s.tunnel);
+    await refreshPorts();
+    if (st.list) {
+      await loadListFromServer();
+      (st.run.results || []).forEach(onRec);
+      if (st.run.summary) onDone(st.run.summary);
+    }
+  }
+  showTunnel(st);
+}
+setInterval(poll, 1000);
+poll();
+
+// ---- events (log + run results)
+const logEl = $("log");
+function addLog(m) {
+  const atEnd = logEl.scrollTop + logEl.clientHeight >= logEl.scrollHeight - 4;
+  logEl.append(m + "\n");
+  if (logEl.childNodes.length > 1500) for (let i = 0; i < 300; i++) logEl.firstChild && logEl.removeChild(logEl.firstChild);
+  if ($("logauto").checked || atEnd) logEl.scrollTop = logEl.scrollHeight;
+}
+$("btnLogClear").onclick = () => logEl.textContent = "";
+function connectEvents() {
+  logEl.textContent = "";
+  const es = new EventSource("/api/events");
+  es.onmessage = ev => {
+    const e = JSON.parse(ev.data);
+    if (e.type === "log") addLog(e.data);
+    else if (e.type === "runstart") clearResults();
+    else if (e.type === "rec") onRec(e.data);
+    else if (e.type === "done") { onDone(e.data); poll(); }
+  };
+  es.onerror = () => { es.close(); setTimeout(connectEvents, 2000); };
+}
+connectEvents();
+</script>
+</body>
+</html>

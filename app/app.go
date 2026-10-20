@@ -1,0 +1,229 @@
+package main
+
+// Application state shared by the web UI and the CLI.
+
+import (
+	"bytes"
+	"fmt"
+	"os"
+	"strings"
+	"sync"
+	"time"
+)
+
+type App struct {
+	mu           sync.Mutex
+	port         *Port
+	list         *CmdList
+	tunnel       *Tunnel
+	tunnelCfg    TunnelConfig
+	tunnelErr    string
+	settings     Settings
+	settingsPath string
+	runResults   []RecResult
+	runSummary   *RunSummary
+	runRunning   bool
+	quit         chan struct{}
+}
+
+func NewApp(path string) *App {
+	return &App{settingsPath: path, settings: LoadSettings(path), quit: make(chan struct{})}
+}
+
+func (a *App) save() { SaveSettings(a.settingsPath, a.settings) }
+
+func (a *App) Port() *Port {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.port != nil && !a.port.Alive() {
+		a.port = nil
+	}
+	return a.port
+}
+
+func (a *App) Connect(url string) (*Port, error) {
+	a.Disconnect()
+	url = strings.TrimSpace(url)
+	if url != "" && !strings.HasPrefix(url, "serial:") && !strings.HasPrefix(url, "tcp:") {
+		url = "serial:" + url
+	}
+	p, err := ConnectPort(url)
+	if err != nil {
+		logf("connect %s: %v", url, err)
+		return nil, err
+	}
+	logf("connected %s: %s", url, p.Pong)
+	a.mu.Lock()
+	a.port = p
+	a.settings.Port = url
+	a.mu.Unlock()
+	a.save()
+	return p, nil
+}
+
+func (a *App) Disconnect() {
+	a.mu.Lock()
+	p := a.port
+	a.port = nil
+	t := a.tunnel
+	usesPort := t != nil && a.tunnelCfg.Transport == "pico"
+	a.mu.Unlock()
+	if usesPort {
+		a.StopTunnel()
+	}
+	if p != nil {
+		p.Close()
+		logf("disconnected %s", p.URL)
+	}
+}
+
+func (a *App) LoadList(data []byte, name string) (*CmdList, error) {
+	l, err := ParseCmdListXML(bytes.NewReader(data), name)
+	if err != nil {
+		logf("command list %s: %v", name, err)
+		return nil, err
+	}
+	a.mu.Lock()
+	a.list = l
+	a.runResults = nil
+	a.runSummary = nil
+	a.mu.Unlock()
+	logf("command list %s: %d actions (%d writes, %d reads, %d delays), %d records, %d bytes, CRC %04X, %d warnings, %d errors",
+		l.Name, len(l.Records), l.NWrites, l.NReads, l.NDelays, l.NWire, l.Bytes, l.CRC, len(l.Warnings), len(l.Errors))
+	return l, nil
+}
+
+func (a *App) LoadListFile(path string) (*CmdList, error) {
+	b, err := os.ReadFile(strings.Trim(strings.TrimSpace(path), `"`))
+	if err != nil {
+		return nil, err
+	}
+	l, err := a.LoadList(b, path)
+	if err == nil {
+		a.mu.Lock()
+		a.settings.XMLPath = path
+		a.mu.Unlock()
+		a.save()
+	}
+	return l, err
+}
+
+func (a *App) List() *CmdList {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.list
+}
+
+// Run executes the loaded list; results go to the event stream and the log.
+func (a *App) Run(stop bool) (*RunSummary, error) {
+	p := a.Port()
+	l := a.List()
+	if p == nil {
+		return nil, ErrNotConnected
+	}
+	if l == nil {
+		return nil, fmt.Errorf("no command list loaded")
+	}
+	a.mu.Lock()
+	a.runResults = nil
+	a.runSummary = nil
+	a.runRunning = true
+	a.mu.Unlock()
+	defer func() {
+		a.mu.Lock()
+		a.runRunning = false
+		a.mu.Unlock()
+	}()
+	events.publish(Event{"runstart", map[string]any{"records": l.NWire, "actions": len(l.Records)}})
+	logf("cmdlist: running %s on %s (stop on failure: %v)", l.Name, p.URL, stop)
+	sum, err := RunList(p, l, stop, func(r RecResult) {
+		a.mu.Lock()
+		a.runResults = append(a.runResults, r)
+		a.mu.Unlock()
+		events.publish(Event{"rec", r})
+		if r.Data != "" && r.Idx >= 0 {
+			logf("cmdlist: record %d (action %d %s): OK %s", r.Wire, r.Idx, l.Records[r.Idx].Param, r.Data)
+		}
+		if r.Status != "OK" && r.Status != "D" {
+			name := ""
+			if r.Idx >= 0 {
+				name = l.Records[r.Idx].Param
+			}
+			logf("cmdlist: record %d (action %d %s): %s %s", r.Wire, r.Idx, name, r.Status, r.Text)
+		}
+	})
+	if sum == nil {
+		sum = &RunSummary{}
+	}
+	if err != nil {
+		sum.Err = err.Error()
+		logf("cmdlist: run failed: %v", err)
+	} else {
+		logf("cmdlist: %s", sum.Line)
+	}
+	a.mu.Lock()
+	a.runSummary = sum
+	a.mu.Unlock()
+	events.publish(Event{"done", sum})
+	return sum, err
+}
+
+func (a *App) StartTunnel(cfg TunnelConfig) error {
+	a.StopTunnel()
+	var tr NodeTransport
+	switch {
+	case strings.HasPrefix(cfg.Transport, "sim:"):
+		tr = NewSimTransport(cfg.Transport[4:])
+	case cfg.Transport == "pico" || cfg.Transport == "":
+		cfg.Transport = "pico"
+		p := a.Port()
+		if p == nil {
+			return fmt.Errorf("connect the Pico first (or use transport sim:HOST:PORT)")
+		}
+		if cfg.A2BBase < 0 || cfg.A2BBase > 0x7E || cfg.TunnelAddr < 0 || cfg.TunnelAddr > 0x7F {
+			return fmt.Errorf("bad I2C address")
+		}
+		tr = NewA2BNodeTransport(p, byte(cfg.A2BBase), byte(cfg.TunnelAddr), cfg.Set400k)
+	default:
+		return fmt.Errorf("unknown tunnel transport %q (use pico or sim:HOST:PORT)", cfg.Transport)
+	}
+	t, err := NewTunnel(cfg, tr)
+	if err != nil {
+		tr.Close()
+		a.mu.Lock()
+		a.tunnelErr = err.Error()
+		a.mu.Unlock()
+		return err
+	}
+	a.mu.Lock()
+	a.tunnel = t
+	a.tunnelCfg = cfg
+	a.tunnelErr = ""
+	a.settings.Tunnel = cfg
+	a.mu.Unlock()
+	a.save()
+	t.Start()
+	return nil
+}
+
+func (a *App) StopTunnel() {
+	a.mu.Lock()
+	t := a.tunnel
+	a.tunnel = nil
+	a.mu.Unlock()
+	if t != nil {
+		done := make(chan struct{})
+		go func() { t.Stop(); close(done) }()
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+			logf("tunnel: stop timed out")
+		}
+	}
+}
+
+func (a *App) Tunnel() (*Tunnel, TunnelConfig) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.tunnel, a.tunnelCfg
+}
