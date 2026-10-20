@@ -69,13 +69,16 @@ int i2cm_xfer(i2cm_t *m, uint8_t addr, const uint8_t *w, size_t wlen, uint8_t *r
     hw->enable = 1;
     (void)hw->clr_intr;  // clear stale STOP_DET / TX_ABRT etc.
 
-    // Generous timeout: 4x nominal byte time per byte plus 20 ms slack (covers waiting for a
-    // busy bus held by another master, and clock stretching).  Scales with length: a
-    // 4096-byte write at 400 kHz gets 20 ms + 4097 * 22 us * 4 = ~380 ms (at 10 kHz ~15 s).
+    // Timeout: 30 ms slack plus, per byte, the larger of 4x the nominal byte time and 1 ms.
+    // The 1 ms floor is for A2B remote access (BUS address): the main node stretches SCL while
+    // each byte crosses the bus to the sub-node, ~0.1-0.3 ms per byte. Aborting part way leaves
+    // the sub-node's I2C master hanging mid-transfer, so this must not be tight. A 70-byte tunnel
+    // read gets ~100 ms; a 4096-byte write ~4 s (only ever reached on a dead bus).
     // If the TX FIFO runs dry mid-write the controller holds SCL low (no early STOP).
     uint32_t byte_us = (uint32_t)(9ull * 1000000ull / (m->baud ? m->baud : 100000));
+    uint32_t per_byte_us = byte_us * 4 > 1000 ? byte_us * 4 : 1000;
     absolute_time_t deadline =
-        make_timeout_time_us(20000 + (uint64_t)(total + 1) * byte_us * 4);
+        make_timeout_time_us(30000 + (uint64_t)(total + 1) * per_byte_us);
 
     size_t issued = 0, received = 0;
     uint32_t abrt = 0;
