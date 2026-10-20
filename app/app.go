@@ -15,7 +15,7 @@ type App struct {
 	mu           sync.Mutex
 	port         *Port
 	list         *CmdList
-	tunnels      []*Tunnel      // One per A2B main node in auto mode, one from the CLI
+	tunnels      []*Tunnel // One per A2B main node in auto mode, one from the CLI
 	tunnelCfgs   []TunnelConfig
 	tunnelErr    string
 	settings     Settings
@@ -24,11 +24,11 @@ type App struct {
 	runSummary   *RunSummary
 	runRunning   bool
 	quit         chan struct{}
-	auto         bool    // GUI mode: start port forwarding automatically (scan the bus)
+	auto         bool      // GUI mode: start port forwarding automatically (scan the bus)
 	pages        int       // Browser pages connected to the event stream
 	pageSeen     bool      // At least one page has connected
 	pagesGone    time.Time // When the last page disconnected
-	scan         BusScan // last bus scan / port forwarding status
+	scan         BusScan   // last bus scan / port forwarding status
 	boot         BootInfo
 }
 

@@ -155,7 +155,7 @@ progress { width: 160px; height: 10px; }
   </div>
 </section>
 </main>
-<div id="logbar"><span>Log</span><span><label><input type="checkbox" id="logauto" checked> follow</label> <button id="btnLogClear">clear</button></span></div>
+<div id="logbar"><span>Log</span><span><label title="Also log the periodic tunnel statistics"><input type="checkbox" id="logverbose"> verbose</label> <label><input type="checkbox" id="logauto" checked> follow</label> <button id="btnLogClear">clear</button></span></div>
 <div id="log"></div>
 <div id="toast"></div>
 
@@ -380,6 +380,7 @@ async function poll() {
   if (first) {
     first = false;
     $("stopfail").checked = !!st.settings.stop_on_fail;
+    $("logverbose").checked = !!st.log_verbose;
     await refreshPorts();
     const last = (st.settings.port || "").replace(/^serial:/, "");
     if (!connected && last && ports.some(x => x.name === last)) connect(last);   // reconnect to the last Pico
@@ -405,6 +406,7 @@ function addLog(m) {
   if ($("logauto").checked || atEnd) logEl.scrollTop = logEl.scrollHeight;
 }
 $("btnLogClear").onclick = () => logEl.textContent = "";
+$("logverbose").onchange = () => act(() => api("/api/logverbose", { on: $("logverbose").checked }));
 function connectEvents() {
   logEl.textContent = "";
   const es = new EventSource("/api/events");

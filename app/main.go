@@ -80,7 +80,8 @@ func main() {
 		sp = settingsPath()
 	}
 	a := NewApp(sp)
-	a.auto = !*noWeb && *tunnelTr == "" // GUI: forwarding starts by itself
+	a.auto = !*noWeb && *tunnelTr == ""                           // GUI: forwarding starts by itself
+	logVerbose.Store(*noWeb || *verbose || a.settings.LogVerbose) // Headless runs keep the stats lines
 	logf("a2b_master %s (settings %s)", version, sp)
 
 	set := map[string]bool{}
@@ -192,7 +193,7 @@ func main() {
 			openBrowser(url)
 		}
 		if !*stay {
-			go a.QuitWhenNoPage(5 * time.Second)       // Closing the page closes the program
+			go a.QuitWhenNoPage(5 * time.Second) // Closing the page closes the program
 		}
 	}
 

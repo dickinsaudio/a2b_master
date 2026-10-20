@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -24,6 +25,15 @@ type hub struct {
 var events = &hub{subs: map[chan []byte]struct{}{}}
 
 var logStdout = true
+
+// logVerbose enables the periodic detail (tunnel stats lines); vlogf only logs when it is set.
+var logVerbose atomic.Bool
+
+func vlogf(f string, a ...any) {
+	if logVerbose.Load() {
+		logf(f, a...)
+	}
+}
 
 func logf(f string, a ...any) {
 	msg := time.Now().Format("15:04:05.000 ") + fmt.Sprintf(f, a...)

@@ -36,20 +36,20 @@ const (
 )
 
 type TunnelConfig struct {
-	Transport  string  `json:"transport"` // "pico" (the connected port) or "sim:HOST:PORT"
-	A2BBase    int     `json:"a2b_base"`
-	TunnelAddr int     `json:"tunnel_addr"`
-	Nodes      string  `json:"nodes"`
-	BasePort   int     `json:"base_port"`
+	Transport  string      `json:"transport"` // "pico" (the connected port) or "sim:HOST:PORT"
+	A2BBase    int         `json:"a2b_base"`
+	TunnelAddr int         `json:"tunnel_addr"`
+	Nodes      string      `json:"nodes"`
+	BasePort   int         `json:"base_port"`
 	Ports      map[int]int `json:"ports,omitempty"` // Per-node port; nodes not listed use BasePort+node
-	Bind       string  `json:"bind"`
-	Chunk      int     `json:"chunk"`
-	IdlePollMs float64 `json:"idle_poll_ms"`
-	Set400k    bool    `json:"set_400k"`
-	Retries    int     `json:"retries"`
-	BackoffMs  float64 `json:"backoff_ms"`
-	StatsS     float64 `json:"stats_s"`
-	Verbose    bool    `json:"verbose"`
+	Bind       string      `json:"bind"`
+	Chunk      int         `json:"chunk"`
+	IdlePollMs float64     `json:"idle_poll_ms"`
+	Set400k    bool        `json:"set_400k"`
+	Retries    int         `json:"retries"`
+	BackoffMs  float64     `json:"backoff_ms"`
+	StatsS     float64     `json:"stats_s"`
+	Verbose    bool        `json:"verbose"`
 }
 
 func DefaultTunnelConfig() TunnelConfig {
@@ -992,14 +992,14 @@ func (t *Tunnel) printStats(now time.Time) {
 		if !n.online {
 			off = "(off)"
 		}
-		parts = append(parts, fmt.Sprintf("n%d%s conn %d (act %d q %d) up %s down %s (%.1f kB/s) %.0f txn/s retry %d [nack %d crc %d io %d fail %d]",
-			n.num, off, st.Conns, len(n.conns), len(n.pending), kb(st.Up), kb(st.Down),
+		parts = append(parts, fmt.Sprintf("%02X/%d%s conn %d (act %d q %d) up %s down %s (%.1f kB/s) %.0f txn/s retry %d [nack %d crc %d io %d fail %d]",
+			t.cfg.A2BBase, n.num, off, st.Conns, len(n.conns), len(n.pending), kb(st.Up), kb(st.Down),
 			float64(st.Down-st.pDown)/dt/1000, float64(st.Txn-st.pTxn)/dt, st.Retries,
 			st.Nacks, st.CRCErrs, st.IOErrs, st.Failed))
 		st.pTxn, st.pDown, st.pRetries, st.pUp, st.pFailed, st.pT = st.Txn, st.Down, st.Retries, st.Up, st.Failed, now
 	}
 	if active || t.cfg.Verbose {
-		logf("[stats] %s", strings.Join(parts, " | "))
+		vlogf("[stats] %s", strings.Join(parts, " | ")) // Only with the log's verbose option
 	}
 }
 

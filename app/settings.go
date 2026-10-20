@@ -14,6 +14,7 @@ type Settings struct {
 	StopOnFail  bool         `json:"stop_on_fail"`
 	ConsoleAddr string       `json:"console_addr"`
 	Tunnel      TunnelConfig `json:"tunnel"`
+	LogVerbose  bool         `json:"log_verbose"`
 }
 
 func DefaultSettings() Settings {

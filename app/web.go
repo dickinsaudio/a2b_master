@@ -325,6 +325,16 @@ func (a *App) Handler() http.Handler {
 		a.StopTunnel()
 		writeJSON(w, map[string]any{"ok": true})
 	})
+	post("/api/logverbose", func(w http.ResponseWriter, r *http.Request) {
+		var q struct{ On bool }
+		readJSON(r, &q)
+		logVerbose.Store(q.On)
+		a.mu.Lock()
+		a.settings.LogVerbose = q.On
+		a.mu.Unlock()
+		a.save()
+		writeJSON(w, map[string]any{"on": q.On})
+	})
 	post("/api/settings", func(w http.ResponseWriter, r *http.Request) {
 		a.mu.Lock()
 		s := a.settings
@@ -403,13 +413,14 @@ func (a *App) state() map[string]any {
 	ts, tcfgs := a.Tunnels()
 	a.mu.Lock()
 	st := map[string]any{
-		"connected":  p != nil,
-		"settings":   a.settings,
-		"run":        map[string]any{"running": a.runRunning, "results": a.runResults, "summary": a.runSummary},
-		"tunnel_err": a.tunnelErr,
-		"scan":       a.scan,
-		"boot":       a.boot,
-		"version":    version,
+		"connected":   p != nil,
+		"settings":    a.settings,
+		"run":         map[string]any{"running": a.runRunning, "results": a.runResults, "summary": a.runSummary},
+		"tunnel_err":  a.tunnelErr,
+		"scan":        a.scan,
+		"boot":        a.boot,
+		"version":     version,
+		"log_verbose": logVerbose.Load(),
 	}
 	if l := a.list; l != nil {
 		st["list"] = map[string]any{"name": l.Name, "actions": len(l.Records), "records": l.NWire, "bytes": l.Bytes,
