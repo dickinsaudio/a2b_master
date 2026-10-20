@@ -53,7 +53,7 @@ type TunnelConfig struct {
 
 func DefaultTunnelConfig() TunnelConfig {
 	return TunnelConfig{Transport: "pico", A2BBase: 0x6A, TunnelAddr: 0x2A, Nodes: "0", BasePort: 8080,
-		Bind: "127.0.0.1", Chunk: 64, IdlePollMs: 50, Set400k: false, Retries: 8, BackoffMs: 1, StatsS: 5}
+		Bind: "127.0.0.1", Chunk: 32, IdlePollMs: 200, Set400k: true, Retries: 8, BackoffMs: 1, StatsS: 5}
 }
 
 func ParseNodes(s string) ([]int, error) {

@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-var version = "1.0"
+var version = "dev" // set by the Makefile: -X main.version=<git hash>
 
 func openBrowser(url string) {
 	var cmd *exec.Cmd
@@ -79,6 +79,7 @@ func main() {
 		sp = settingsPath()
 	}
 	a := NewApp(sp)
+	a.auto = !*noWeb && *tunnelTr == "" // GUI: forwarding starts by itself
 	logf("a2b_master %s (settings %s)", version, sp)
 
 	set := map[string]bool{}

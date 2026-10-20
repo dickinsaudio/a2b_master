@@ -190,6 +190,24 @@ func (a *App) Handler() http.Handler {
 		logf("saved %s to Pico flash: OK %s", l.Name, res)
 		writeJSON(w, map[string]any{"bytes": res})
 	})
+	post("/api/list/boot", func(w http.ResponseWriter, r *http.Request) {
+		if err := a.SaveBoot(); err != nil {
+			writeErr(w, err)
+			return
+		}
+		writeJSON(w, map[string]any{"ok": true})
+	})
+	post("/api/list/clear", func(w http.ResponseWriter, r *http.Request) {
+		if err := a.ClearBoot(); err != nil {
+			writeErr(w, err)
+			return
+		}
+		writeJSON(w, map[string]any{"ok": true})
+	})
+	post("/api/tunnel/rescan", func(w http.ResponseWriter, r *http.Request) {
+		go a.AutoTunnel()
+		writeJSON(w, map[string]any{"ok": true})
+	})
 	post("/api/list/autorun", func(w http.ResponseWriter, r *http.Request) {
 		var q struct{ On bool }
 		readJSON(r, &q)
@@ -387,6 +405,9 @@ func (a *App) state() map[string]any {
 		"settings":   a.settings,
 		"run":        map[string]any{"running": a.runRunning, "results": a.runResults, "summary": a.runSummary},
 		"tunnel_err": a.tunnelErr,
+		"scan":       a.scan,
+		"boot":       a.boot,
+		"version":    version,
 	}
 	if l := a.list; l != nil {
 		st["list"] = map[string]any{"name": l.Name, "actions": len(l.Records), "records": l.NWire, "bytes": l.Bytes,

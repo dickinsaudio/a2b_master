@@ -20,46 +20,25 @@ the tested Python reference in [`../reference/`](../reference/).
 
 ## Usage (Windows)
 
-1. Copy `a2b_master.exe` into any folder and double-click it. A console window opens and shows
-   the log. The browser opens `http://127.0.0.1:8000/`. To quit, close the console window,
-   press Ctrl-C in it, or click **Quit** in the page.
-2. **Connect.** Pick the Pico's COM port (Raspberry Pi USB devices, VID 2E8A, are listed
-   first) and click **Connect**. The reply to `P` appears next to the button, for example
-   `PONG a2b-master v2 400000`. You can also type a port URL in the text box instead:
-   `COM5`, `serial:COM5` or `tcp:127.0.0.1:9600`.
-3. **Command list.** Choose the XML file, or type its path and click **Load**. The table
-   lists each action. Errors (an SPI action or an unknown instruction) and warnings appear
-   above the table, and a list with errors cannot be run.
-   * **Run on Pico** clears the Pico list and uploads it (`LC`, then `LA` in 300-byte chunks),
-     checks the upload against `LI` (byte count and CRC), then runs `LX`. Each row turns green
-     or red as its result arrives, and read data is shown in the row. The summary line shows
-     the `DONE` totals. Check **stop on first failure** to run `LX STOP` instead.
-   * **Save to Pico flash** uploads the list and then sends `LS`. Use the **autorun on boot**
-     checkbox with **Apply** to send `LAUTO 1` or `LAUTO 0`.
-   * **Read Pico list info** sends `LI` and shows MATCH or differs for the RAM and flash
-     lists against the loaded file.
-   * **Export C array** downloads a `.h` file containing `const uint8_t a2b_cmdlist[]` (the
-     record bytes, a comment per record with its ParamName, and a trailing `0x00` end
-     record) plus `A2B_CMDLIST_LEN`, `A2B_CMDLIST_RECORDS` and `A2B_CMDLIST_CRC16`.
-4. **Register console.**
-   * Generic read and write: give the address, the register address width (1, 2 or none), the
-     register, and either the data or the read length.
-   * Quick reads on the main node (default 0x6A): VENDOR/PRODUCT/VERSION (registers
-     0x02..0x04) and INTTYPE (0x17).
-   * **Node registers** writes NODEADR (0x01) = N on the main node, then reads or writes the
-     register through BUS = main + 1, all in one queued job.
-   * **Raw protocol line** sends any single-reply command (`B 100`, `LI`, ...).
-5. **Port forwarding (web tunnel).**
-   * Settings: transport `pico` (the connected Pico), A2B base 0x6A, tunnel slave 0x2A, nodes
-     (for example `0` or `0,1`), base port 8080, bind 127.0.0.1, chunk 64, idle poll 50 ms.
-     **set sub-node I2C 400 kHz** is off by default for the AD2437.
-   * Click **Start**. The table shows each node: whether it is reachable, connection count,
-     bytes up and down, download rate, transactions per second and retries (split into NACK,
-     CRC, I/O and failed). Click a node's link to open its web page.
-   * Bind `0.0.0.0` to expose the tunnel ports on the LAN.
+Run `a2b_master.exe`. It opens the GUI in your browser (close the console window to quit).
 
-Settings are saved in `a2b_master.json` next to the exe: last port, XML path, stop on
-failure, console address and tunnel configuration.
+**Top bar.** Pick the Pico's COM port from the list; that connects (and pings) straight away and
+shows CONNECTED. Picking it again reconnects. The last port is reconnected automatically on start.
+The version shown is the git hash the exe was built from.
+
+**Command list.** Choose a SigmaStudio(+) XML export; it is parsed as soon as it is chosen (choose
+it again to reload). *Run once* runs it through the Pico (nothing is stored), with a result per
+command. *Pico boot*: *Save as boot* stores the list on the Pico and runs it at every power up, with
+no PC needed; *Clear boot* stops that.
+
+**Register console.** Quick reads of the main node (0x6A) and of any sub-node (named and decoded),
+a generic I2C read/write, and a raw Pico command line.
+
+**Port forwarding.** Automatic. After connecting, and again after every command-list run (which redoes
+discovery), the app scans the A2B bus (up to 16 sub-nodes), finds the ones whose RP2350 answers as the
+tunnel slave (0x2A) and forwards `http://localhost:8080+N/` to node N (8880+N if 8080 is in use).
+Fixed settings: sub-node I2C 400 kHz, 32-byte chunks, 200 ms idle poll. *Rescan bus* repeats the scan.
+Retries are shown against the total number of tunnel transactions (hover for the breakdown).
 
 ### How the port is shared
 
