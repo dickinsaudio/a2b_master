@@ -36,7 +36,7 @@ func openBrowser(url string) {
 
 func main() {
 	var (
-		httpAddr  = flag.String("http", "", "UI address (default from settings, 127.0.0.1:8000)")
+		httpAddr  = flag.String("http", "", "UI address (default from settings, 127.0.0.1:8090)")
 		noBrowser = flag.Bool("no-browser", false, "do not open the browser")
 		noWeb     = flag.Bool("no-web", false, "headless: no web UI")
 		portURL   = flag.String("port", "", "connect at start: COM5 | serial:COM5 | tcp:HOST:PORT")
@@ -171,6 +171,10 @@ func main() {
 		addr := *httpAddr
 		if addr == "" {
 			addr = a.settings.HTTP
+		}
+		if addr == "127.0.0.1:8000" { // Old default - 8000+ is now the port forwarding range
+			addr = DefaultSettings().HTTP
+			a.settings.HTTP = addr
 		}
 		ln, err := net.Listen("tcp", addr)
 		if err != nil {

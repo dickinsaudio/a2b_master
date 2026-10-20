@@ -52,7 +52,7 @@ type TunnelConfig struct {
 }
 
 func DefaultTunnelConfig() TunnelConfig {
-	return TunnelConfig{Transport: "pico", A2BBase: 0x6A, TunnelAddr: 0x2A, Nodes: "0", BasePort: 8080,
+	return TunnelConfig{Transport: "pico", A2BBase: 0x6A, TunnelAddr: 0x2A, Nodes: "0", BasePort: 8000,
 		Bind: "127.0.0.1", Chunk: 32, IdlePollMs: 200, Set400k: true, Retries: 8, BackoffMs: 1, StatsS: 5}
 }
 
@@ -1017,6 +1017,7 @@ func (t *Tunnel) shutdown() {
 // ---- status for the UI ---------------------------------------------------------------
 
 type NodeStatus struct {
+	Main     int     `json:"main"` // A2B main node I2C address
 	Node     int     `json:"node"`
 	URL      string  `json:"url"`
 	Online   bool    `json:"online"`
@@ -1050,7 +1051,7 @@ func (t *Tunnel) Status() []NodeStatus {
 		if host == "127.0.0.1" {
 			host = "localhost"
 		}
-		out = append(out, NodeStatus{Node: n.num, URL: fmt.Sprintf("http://%s:%d/", host, t.cfg.BasePort+n.num),
+		out = append(out, NodeStatus{Main: t.cfg.A2BBase, Node: n.num, URL: fmt.Sprintf("http://%s:%d/", host, t.cfg.BasePort+n.num),
 			Online: n.online, Err: n.lastErr, Conns: st.Conns, Active: len(n.conns), Queued: len(n.pending),
 			Up: st.Up, Down: st.Down, UpRate: st.UpRate, DownRate: st.DownRate, TxnRate: st.TxnRate, Txn: st.Txn,
 			Retries: st.Retries, Nacks: st.Nacks, CRCErrs: st.CRCErrs, IOErrs: st.IOErrs, Failed: st.Failed})

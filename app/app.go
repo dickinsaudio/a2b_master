@@ -15,8 +15,8 @@ type App struct {
 	mu           sync.Mutex
 	port         *Port
 	list         *CmdList
-	tunnel       *Tunnel
-	tunnelCfg    TunnelConfig
+	tunnels      []*Tunnel      // One per A2B main node in auto mode, one from the CLI
+	tunnelCfgs   []TunnelConfig
 	tunnelErr    string
 	settings     Settings
 	settingsPath string
@@ -145,8 +145,10 @@ func (a *App) Disconnect() {
 	a.mu.Lock()
 	p := a.port
 	a.port = nil
-	t := a.tunnel
-	usesPort := t != nil && a.tunnelCfg.Transport == "pico"
+	usesPort := false
+	for _, c := range a.tunnelCfgs {
+		usesPort = usesPort || c.Transport == "pico"
+	}
 	a.mu.Unlock()
 	if usesPort {
 		a.StopTunnel()
@@ -256,8 +258,14 @@ func (a *App) Run(stop bool) (*RunSummary, error) {
 	return sum, err
 }
 
+// StartTunnel replaces any running tunnels with this one.
 func (a *App) StartTunnel(cfg TunnelConfig) error {
 	a.StopTunnel()
+	return a.addTunnel(cfg)
+}
+
+// addTunnel starts another tunnel alongside the running ones (they share the port queue).
+func (a *App) addTunnel(cfg TunnelConfig) error {
 	var tr NodeTransport
 	switch {
 	case strings.HasPrefix(cfg.Transport, "sim:"):
@@ -284,8 +292,8 @@ func (a *App) StartTunnel(cfg TunnelConfig) error {
 		return err
 	}
 	a.mu.Lock()
-	a.tunnel = t
-	a.tunnelCfg = cfg
+	a.tunnels = append(a.tunnels, t)
+	a.tunnelCfgs = append(a.tunnelCfgs, cfg)
 	a.tunnelErr = ""
 	a.settings.Tunnel = cfg
 	a.mu.Unlock()
@@ -296,24 +304,27 @@ func (a *App) StartTunnel(cfg TunnelConfig) error {
 
 func (a *App) StopTunnel() {
 	a.mu.Lock()
-	t := a.tunnel
-	a.tunnel = nil
+	ts := a.tunnels
+	a.tunnels, a.tunnelCfgs = nil, nil
 	a.mu.Unlock()
-	if t != nil {
-		done := make(chan struct{})
-		go func() { t.Stop(); close(done) }()
-		select {
-		case <-done:
-		case <-time.After(5 * time.Second):
-			logf("tunnel: stop timed out")
+	done := make(chan struct{})
+	go func() {
+		for _, t := range ts {
+			t.Stop()
 		}
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		logf("tunnel: stop timed out")
 	}
 }
 
-func (a *App) Tunnel() (*Tunnel, TunnelConfig) {
+func (a *App) Tunnels() ([]*Tunnel, []TunnelConfig) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	return a.tunnel, a.tunnelCfg
+	return append([]*Tunnel(nil), a.tunnels...), append([]TunnelConfig(nil), a.tunnelCfgs...)
 }
 
 // The GUI keeps an event stream open, so "no page connected" means the browser tab was closed

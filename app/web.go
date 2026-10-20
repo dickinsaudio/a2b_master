@@ -400,7 +400,7 @@ func (a *App) Handler() http.Handler {
 
 func (a *App) state() map[string]any {
 	p := a.Port()
-	t, tcfg := a.Tunnel()
+	ts, tcfgs := a.Tunnels()
 	a.mu.Lock()
 	st := map[string]any{
 		"connected":  p != nil,
@@ -421,8 +421,12 @@ func (a *App) state() map[string]any {
 		st["port"] = map[string]any{"url": p.URL, "pong": p.Pong, "busy": p.busy.Load(), "queue": p.hiPending.Load(),
 			"jobs": p.jobs.Load()}
 	}
-	if t != nil {
-		st["tunnel"] = map[string]any{"running": true, "cfg": tcfg, "nodes": t.Status()}
+	if len(ts) > 0 {
+		var nodes []NodeStatus
+		for _, t := range ts {
+			nodes = append(nodes, t.Status()...)
+		}
+		st["tunnel"] = map[string]any{"running": true, "cfg": tcfgs[0], "nodes": nodes}
 	}
 	return st
 }

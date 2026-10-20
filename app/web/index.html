@@ -97,10 +97,8 @@ progress { width: 160px; height: 10px; }
       <span id="runstat" class="mono"></span>
     </div>
     <div class="row">
-      <span class="muted">Pico boot:</span>
       <button id="btnBoot" title="Store this list on the Pico and run it at every power up (no PC needed)">Save as boot</button>
       <button id="btnClear" title="Stop the Pico running a list at power up">Clear boot</button>
-      <span id="bootstat" class="muted"></span>
     </div>
     <div id="msgs"></div>
   </div>
@@ -115,7 +113,7 @@ progress { width: 160px; height: 10px; }
 <section id="tab-console">
   <div class="grid2">
     <div class="card">
-      <h3>Main node (0x6A)</h3>
+      <div class="row"><h3 style="margin:0">Main node</h3><select id="nmain"></select></div>
       <div class="btns" id="mainbtns"></div>
       <h3 style="margin-top:12px">Sub-node</h3>
       <div class="row"><label>node <select id="nnode"></select></label></div>
@@ -151,7 +149,7 @@ progress { width: 160px; height: 10px; }
     <div class="row"><span id="tstate"></span><span style="flex:1"></span>
       <button id="btnRescan" title="Scan the A2B bus again and restart forwarding">Rescan bus</button></div>
     <table id="ttab">
-      <thead><tr><th>node</th><th>link</th><th>state</th><th>connections (active / queued)</th><th>up</th><th>down</th><th>down rate</th><th>txn/s</th><th>retries / transactions</th></tr></thead>
+      <thead><tr><th>A2B / node</th><th>link</th><th>state</th><th>Packets (A/Q)</th><th>up</th><th>down</th><th>down rate</th><th>Chunks</th><th>Retries (%)</th></tr></thead>
       <tbody></tbody>
     </table>
   </div>
@@ -251,10 +249,6 @@ $("btnBoot").onclick = () => act(async () => {
   await api("/api/list/boot", {}); poll();
 });
 $("btnClear").onclick = () => act(async () => { await api("/api/list/clear", {}); poll(); });
-function showBoot(b) {
-  $("bootstat").textContent = !connected ? "" : !b || !b.known ? "" :
-    b.on ? `runs a stored list (${b.bytes} bytes) at power up` : "nothing runs at power up";
-}
 function clearResults() {
   runRes = {};
   if (!list) return;
@@ -304,15 +298,15 @@ async function regRead(who, name, start, n) {
   const label = `${who} ${name}`;
   try {
     const r = who === "main"
-      ? await api("/api/i2c", { op: "read", addr: "6A", regw: 1, reg: hex2(start), n })
-      : await api("/api/node", { base: "6A", node: +$("nnode").value, reg: hex2(start), n, data: "" });
+      ? await api("/api/i2c", { op: "read", addr: $("nmain").value, regw: 1, reg: hex2(start), n })
+      : await api("/api/node", { base: $("nmain").value, node: +$("nnode").value, reg: hex2(start), n, data: "" });
     conOut(`${label}: ${decode(start, r.data)}`, "ok");
   } catch (e) { conOut(`${label}: ${e.message}`, "bad"); }
 }
 function quickButtons(id, reads, who) {
   $(id).innerHTML = reads.map((r, i) => `<button data-i="${i}">${esc(r[0])}</button>`).join("");
   $(id).querySelectorAll("button").forEach(b => b.onclick = () => {
-    const r = reads[+b.dataset.i]; regRead(who === "sub" ? "node " + $("nnode").value : "main", r[0], r[1], r[2]);
+    const r = reads[+b.dataset.i]; regRead(who === "sub" ? `0x${$("nmain").value} node ${$("nnode").value}` : `main 0x${$("nmain").value}`, r[0], r[1], r[2]);
   });
 }
 quickButtons("mainbtns", MAIN_READS, "main");
@@ -329,14 +323,21 @@ $("btnWrite").onclick = () => i2c({ op: "write", addr: $("caddr").value, regw: +
 $("btnRaw").onclick = () => i2c({ op: "raw", line: $("rawline").value }, "> " + $("rawline").value);
 $("rawline").onkeydown = e => { if (e.key === "Enter") $("btnRaw").click(); };
 $("btnConClear").onclick = () => $("conout").innerHTML = "";
-function fillNodes(nodes) {
-  const want = (nodes && nodes.length ? nodes : [0]).join(",");
-  if ($("nnode").dataset.nodes === want) return;
-  const cur = $("nnode").value;
-  $("nnode").dataset.nodes = want;
-  $("nnode").innerHTML = want.split(",").map(n => `<option>${n}</option>`).join("");
-  if (want.split(",").includes(cur)) $("nnode").value = cur;
+function fillSelect(sel, values) {                       // Rebuild only when the set changes
+  const want = values.join(",");
+  if (sel.dataset.v === want) return;
+  const cur = sel.value;
+  sel.dataset.v = want;
+  sel.innerHTML = values.map(v => `<option>${v}</option>`).join("");
+  if (values.includes(cur)) sel.value = cur;
 }
+function fillMains() {                                       // Main nodes found by the bus scan (else 6A)
+  const mains = (state.scan && state.scan.mains) || [];
+  fillSelect($("nmain"), mains.length ? mains.map(m => hex2(m.addr)) : ["6A"]);
+  const m = mains.find(m => hex2(m.addr) === $("nmain").value);
+  fillSelect($("nnode"), m && m.nodes && m.nodes.length ? m.nodes.map(String) : ["0"]);
+}
+$("nmain").onchange = fillMains;
 
 // ---- port forwarding (automatic)
 $("btnRescan").onclick = () => act(async () => { await api("/api/tunnel/rescan", {}); poll(); });
@@ -345,18 +346,19 @@ function showTunnel(st) {
   $("btnRescan").disabled = !connected || st.run.running;
   $("tstate").innerHTML = !connected ? '<span class="muted">connect the Pico first</span>' :
     t ? `<span class="ok">forwarding</span> &middot; ${esc(sc.msg || "")}` : `<span class="muted">${esc(sc.msg || "")}</span>`;
-  const stats = {}; (t ? t.nodes : []).forEach(n => stats[n.node] = n);
-  const nodes = sc.nodes || [];
-  if (!nodes.length) { tb.innerHTML = `<tr><td colspan="9" class="muted">no sub-nodes</td></tr>`; return; }
-  tb.innerHTML = nodes.map(id => {
-    const n = stats[id];
-    if (!n) return `<tr><td>${id}</td><td class="muted">-</td><td><span class="pill">no tunnel</span></td><td colspan="6"></td></tr>`;
+  const stats = {}; (t ? t.nodes : []).forEach(n => stats[n.main + ":" + n.node] = n);
+  const rows = [];
+  (sc.mains || []).forEach(m => (m.nodes || []).forEach(id => rows.push([m.addr, id])));
+  if (!rows.length) { tb.innerHTML = `<tr><td colspan="9" class="muted">no sub-nodes</td></tr>`; return; }
+  tb.innerHTML = rows.map(([main, id]) => {
+    const n = stats[main + ":" + id], label = `${hex2(main)} / ${id}`;
+    if (!n) return `<tr><td>${label}</td><td class="muted">-</td><td><span class="pill">no tunnel</span></td><td colspan="6"></td></tr>`;
     const pct = n.txn ? (100 * n.retries / n.txn).toFixed(2) + "%" : "-";
-    return `<tr><td>${id}</td><td><a href="${n.url}" target="_blank">${n.url}</a></td>` +
+    return `<tr><td>${label}</td><td><a href="${n.url}" target="_blank">${n.url}</a></td>` +
       `<td>${n.online ? '<span class="pill ok">reachable</span>' : '<span class="pill bad">unreachable</span>'}</td>` +
-      `<td>${n.conns} (${n.active} / ${n.queued})</td><td>${kb(n.up)}</td><td>${kb(n.down)}</td>` +
-      `<td>${(n.down_rate / 1000).toFixed(1)} kB/s</td><td>${n.txn_rate.toFixed(0)}</td>` +
-      `<td title="NAK ${n.nacks}, CRC ${n.crc}, I/O ${n.io}, gave up ${n.failed}">${n.retries} / ${n.txn} (${pct})</td></tr>`;
+      `<td>${n.conns} (${n.active}/${n.queued})</td><td>${kb(n.up)}</td><td>${kb(n.down)}</td>` +
+      `<td>${(n.down_rate / 1000).toFixed(1)} kB/s</td><td title="${n.txn_rate.toFixed(0)} per second">${n.txn}</td>` +
+      `<td title="NAK ${n.nacks}, CRC ${n.crc}, I/O ${n.io}, gave up ${n.failed}">${n.retries} (${pct})</td></tr>`;
   }).join("");
 }
 
@@ -374,8 +376,7 @@ async function poll() {
   $("btnRun").disabled = !connected || !list || list.errors.length > 0 || st.run.running;
   $("btnBoot").disabled = !connected || !list || list.errors.length > 0 || st.run.running;
   $("btnClear").disabled = !connected || st.run.running;
-  showBoot(st.boot);
-  fillNodes(st.scan && st.scan.nodes);
+  fillMains();
   if (first) {
     first = false;
     $("stopfail").checked = !!st.settings.stop_on_fail;

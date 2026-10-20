@@ -17,7 +17,7 @@ type Settings struct {
 }
 
 func DefaultSettings() Settings {
-	return Settings{HTTP: "127.0.0.1:8000", ConsoleAddr: "6A", Tunnel: DefaultTunnelConfig()}
+	return Settings{HTTP: "127.0.0.1:8090", ConsoleAddr: "6A", Tunnel: DefaultTunnelConfig()}
 }
 
 var settingsMu sync.Mutex
@@ -43,7 +43,7 @@ func LoadSettings(path string) Settings {
 		}
 	}
 	if s.HTTP == "" {
-		s.HTTP = "127.0.0.1:8000"
+		s.HTTP = "127.0.0.1:8090"
 	}
 	if s.Tunnel.BasePort == 0 {
 		s.Tunnel = DefaultTunnelConfig()

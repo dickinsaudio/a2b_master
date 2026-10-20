@@ -7,7 +7,7 @@ includes this repo as a submodule and builds `device/`.
 ```
 a2b_master.exe ──USB CDC──► Pico (RP2040) ──I2C──► EVK USBi header ─► AD2437 main 0x6A/0x6B, DSP 0x38, codec 0x06
  (browser GUI,                (bridge + command-list                       ══A2B══► sub-nodes (RP2350 tunnel slave 0x2A)
-  localhost:8080+node)         player, flash autorun)
+  localhost:80x0+node)         player, flash autorun)
 ```
 
 | folder | what |
@@ -40,7 +40,7 @@ other targets. C navigation uses `build/compile_commands.json` from the firmware
    schematic. Don't connect power; logic is 3.3 V. Leave the USBi unplugged.
 3. Run `a2b_master.exe`. It opens the GUI in your browser. Pick the COM port, load
    `adi_a2b_commandlist.xml`, and **Run on Pico** (expect `DONE 161 161 0`).
-4. **Port forwarding → Start**, then browse `http://localhost:8080+node/`.
+4. Port forwarding starts by itself: browse `http://localhost:8000 + 10*main + node/` (main 0x68/6A/6C/6E = 0/1/2/3; e.g. 0x6A node 0 = 8010).
 
 ## Status
 
