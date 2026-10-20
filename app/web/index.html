@@ -120,10 +120,15 @@ progress { width: 160px; height: 10px; }
       <div class="btns" id="subbtns"></div>
     </div>
     <div class="card">
-      <h3>I2C read / write</h3>
+      <h3>Read / write</h3>
       <div class="row">
-        <label>addr 0x<input id="caddr" class="hex" value="6A"></label>
-        <label>reg width <select id="cregw"><option value="1">1</option><option value="2">2</option><option value="0">none</option></select></label>
+        <label><input type="radio" name="ctgt" value="main" checked> <span id="tgtmain">main 6A</span></label>
+        <label><input type="radio" name="ctgt" value="sub"> <span id="tgtsub">sub-node 6A/0</span></label>
+        <label><input type="radio" name="ctgt" value="raw"> I2C address</label>
+        <span id="rawopts"><label>0x<input id="caddr" class="hex" value="38"></label>
+        <label>reg width <select id="cregw"><option value="1">1</option><option value="2">2</option><option value="0">none</option></select></label></span>
+      </div>
+      <div class="row">
         <label>reg 0x<input id="creg" class="hex" value="02"></label>
         <label>length <input id="clen" class="num" type="number" min="1" max="255" value="1"></label>
         <button id="btnRead" class="pri">Read</button>
@@ -315,11 +320,36 @@ async function i2c(q, label) {
   try { const r = await api("/api/i2c", q); conOut(label + " -> " + (r.data !== undefined ? r.data : r.reply), "ok"); }
   catch (e) { conOut(label + " -> " + e.message, "bad"); }
 }
-function regDesc() { return +$("cregw").value ? ` [${$("creg").value.toUpperCase()}]` : ""; }
-$("btnRead").onclick = () => i2c({ op: "read", addr: $("caddr").value, regw: +$("cregw").value, reg: $("creg").value, n: +$("clen").value },
-  `R ${$("caddr").value.toUpperCase()}${regDesc()} x${$("clen").value}`);
-$("btnWrite").onclick = () => i2c({ op: "write", addr: $("caddr").value, regw: +$("cregw").value, reg: $("creg").value, data: $("cdata").value },
-  `W ${$("caddr").value.toUpperCase()}${regDesc()} ${$("cdata").value}`);
+// Read / write target: the main node or sub-node chosen on the left (A2B registers, 1-byte
+// address, reads decoded by name), or any I2C address with a chosen register width.
+const tgt = () => document.querySelector("input[name=ctgt]:checked").value;
+function showTarget() {
+  $("tgtmain").textContent = `main ${$("nmain").value}`;
+  $("tgtsub").textContent = `sub-node ${$("nmain").value}/${$("nnode").value}`;
+  $("rawopts").style.display = tgt() === "raw" ? "" : "none";
+}
+document.querySelectorAll("input[name=ctgt]").forEach(r => r.onchange = showTarget);
+async function regOp(write) {
+  const reg = $("creg").value, start = parseInt(reg, 16), n = +$("clen").value, data = $("cdata").value;
+  if (write && !data.trim()) return toast("enter data bytes");
+  const t = tgt();
+  if (t === "raw") {
+    const regw = +$("cregw").value, rd = regw ? ` [${reg.toUpperCase()}]` : "";
+    return write ? i2c({ op: "write", addr: $("caddr").value, regw, reg, data }, `W ${$("caddr").value.toUpperCase()}${rd} ${data}`)
+                 : i2c({ op: "read", addr: $("caddr").value, regw, reg, n }, `R ${$("caddr").value.toUpperCase()}${rd} x${n}`);
+  }
+  const who = t === "main" ? `main ${$("nmain").value}` : `${$("nmain").value}/${$("nnode").value}`;
+  const name = RN[start] || "0x" + hex2(start);
+  try {
+    const r = t === "main"
+      ? await api("/api/i2c", write ? { op: "write", addr: $("nmain").value, regw: 1, reg, data }
+                                     : { op: "read", addr: $("nmain").value, regw: 1, reg, n })
+      : await api("/api/node", { base: $("nmain").value, node: +$("nnode").value, reg, n, data: write ? data : "" });
+    conOut(write ? `${who} ${name} <- ${data}: OK` : `${who}: ${decode(start, r.data)}`, "ok");
+  } catch (e) { conOut(`${who} ${name} ${write ? "write" : "read"}: ${e.message}`, "bad"); }
+}
+$("btnRead").onclick = () => regOp(false);
+$("btnWrite").onclick = () => regOp(true);
 $("btnRaw").onclick = () => i2c({ op: "raw", line: $("rawline").value }, "> " + $("rawline").value);
 $("rawline").onkeydown = e => { if (e.key === "Enter") $("btnRaw").click(); };
 $("btnConClear").onclick = () => $("conout").innerHTML = "";
@@ -337,7 +367,8 @@ function fillMains() {                                       // Main nodes found
   const m = mains.find(m => hex2(m.addr) === $("nmain").value);
   fillSelect($("nnode"), m && m.nodes && m.nodes.length ? m.nodes.map(String) : ["0"]);
 }
-$("nmain").onchange = fillMains;
+$("nmain").onchange = () => { fillMains(); showTarget(); };
+$("nnode").onchange = showTarget;
 
 // ---- port forwarding (automatic)
 $("btnRescan").onclick = () => act(async () => { await api("/api/tunnel/rescan", {}); poll(); });
@@ -377,6 +408,7 @@ async function poll() {
   $("btnBoot").disabled = !connected || !list || list.errors.length > 0 || st.run.running;
   $("btnClear").disabled = !connected || st.run.running;
   fillMains();
+  showTarget();
   if (first) {
     first = false;
     $("stopfail").checked = !!st.settings.stop_on_fail;
