@@ -111,6 +111,7 @@ progress { width: 160px; height: 10px; }
 </section>
 
 <section id="tab-console">
+  <div class="row"><button class="pri runbtn" title="Runs the loaded command list once through the Pico (same as RUN on COMMAND)">RUN</button><span class="mono runstat2"></span></div>
   <div class="grid2">
     <div class="card">
       <div class="row"><h3 style="margin:0">Main node</h3><select id="nmain"></select></div>
@@ -150,6 +151,7 @@ progress { width: 160px; height: 10px; }
 </section>
 
 <section id="tab-tunnel">
+  <div class="row"><button class="pri runbtn" title="Runs the loaded command list once through the Pico (same as RUN on COMMAND)">RUN</button><span class="mono runstat2"></span></div>
   <div class="card">
     <div class="row"><span id="tstate"></span><span style="flex:1"></span>
       <button id="btnRescan" title="Scan the A2B bus again and restart forwarding">Rescan bus</button></div>
@@ -249,6 +251,9 @@ $("xmlfile").onchange = () => act(async () => {
   $("xmlfile").value = "";                               // choosing the same file again reloads it
 });
 $("btnRun").onclick = () => act(async () => { clearResults(); await api("/api/list/run", { stop: $("stopfail").checked }); });
+document.querySelectorAll(".runbtn").forEach(b => b.onclick = () => $("btnRun").click());      // RUN on the other tabs
+new MutationObserver(() => document.querySelectorAll(".runstat2").forEach(e => e.innerHTML = $("runstat").innerHTML))
+  .observe($("runstat"), { childList: true, subtree: true, characterData: true });
 $("btnBoot").onclick = () => act(async () => {
   if (!confirm("Store this list on the Pico and run it at every power up?")) return;
   await api("/api/list/boot", {}); poll();
@@ -405,6 +410,7 @@ async function poll() {
   showConn();
   $("busy").textContent = connected && p.busy ? "busy: " + p.busy + (p.queue > 1 ? ` (${p.queue} queued)` : "") : "";
   $("btnRun").disabled = !connected || !list || list.errors.length > 0 || st.run.running;
+  document.querySelectorAll(".runbtn").forEach(b => b.disabled = $("btnRun").disabled);
   $("btnBoot").disabled = !connected || !list || list.errors.length > 0 || st.run.running;
   $("btnClear").disabled = !connected || st.run.running;
   fillMains();
